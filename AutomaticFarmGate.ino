@@ -16,11 +16,6 @@ int lockBrake = 8;
 int lockCurrent = 1;
 
 
-
-
-
-
-
 int gateStartStopPin = 4;
 int lockStartStopPin = 5;
 
@@ -33,6 +28,8 @@ int isGateButtonPressed = true;
 int isLockButtonPressed = false;
 
 int gateState = 1;
+
+int gatePos = 0;
 
 // These are used to switch the
 // motors on and off and insure
@@ -60,6 +57,8 @@ void setup() {
 
   delay(1000);
   Serial.println("\nInitializing Gate Motor....");
+  Serial.print("Gate Position Pin: ");
+  Serial.println(gatePositionPin);
   
   pinMode(gateDirection, OUTPUT);
   pinMode(gateBrake, OUTPUT);
@@ -79,25 +78,25 @@ void setup() {
 void loop() {
   
   governActuatorMovingVars();
-  Serial.print("Gate Moving:");
-  Serial.println(isGateMoving);
-  Serial.print("Gate Pressed: ");
-  Serial.println(gatePressed);
- 
   
+  // Show Gate Position
+  Serial.print("Gate Position: ");
+  gatePos = analogRead(gatePositionPin);
+  Serial.println(gatePos);
+    
   if(gatePressed) {
     gatePressed = false;
     
     Serial.print("Current State: ");
     Serial.println(gateState);
     Serial.print("Moving the gate in 3");
-    delay(1000);
+    delay(700);
     Serial.print(" 2");
-    delay(1000);
+    delay(700);
     Serial.println(" 1");
-    delay(1000);
+    delay(700);
     Serial.println("GO");
-    delay(1500);
+    delay(700);
     if(gateState == 1) {
       
       //Arduino Motor Shield
