@@ -79,7 +79,7 @@ void loop() {
   
   governActuatorMovingVars();
   
-  stopLockAt(600);  
+  stopGateAt(600);  
     
   if(gatePressed) {
     gatePressed = false;
@@ -202,7 +202,7 @@ void governActuatorMovingVars() {
 
 // Stops the lock from extending past the
 // given pos.
-void stopLockAt(int pos) {
+void stopGateAt(int pos) {
 
   gatePos = analogRead(gatePositionPin);
   
