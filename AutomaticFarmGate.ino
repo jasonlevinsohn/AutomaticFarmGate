@@ -209,15 +209,10 @@ void stopLockAt(int pos) {
   Serial.print("Gate Position: ");
   Serial.println(gatePos);
   
-  /*Serial.print("GatePos: ");
-  Serial.println(gatePos);
-  Serial.print("Pos: ");
-  Serial.println(pos); */
+  
   
   if(gatePos > pos) {
-    //digitalWrite(gateDirection, LOW);
-    //digitalWrite(gateBrake, HIGH);
-    //digitalWrite(gateSpeed, 0);
+    
     Serial.println("----------------");
     Serial.println("Motion Interuppted");
     Serial.print("Gate Position: ");
