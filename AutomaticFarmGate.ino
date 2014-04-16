@@ -19,8 +19,8 @@ int lockCurrent = 1;
 int gateStartStopPin = 4;
 int lockStartStopPin = 5;
 
-int gatePositionPin = 6;
-int lockPositionPin = 7;
+int gatePositionPin = 0;
+int lockPositionPin = 1;
 
 int isGateMoving = false;
 int isLockMoving = false;
@@ -79,10 +79,7 @@ void loop() {
   
   governActuatorMovingVars();
   
-  // Show Gate Position
-  Serial.print("Gate Position: ");
-  gatePos = analogRead(gatePositionPin);
-  Serial.println(gatePos);
+  stopLockAt(600);  
     
   if(gatePressed) {
     gatePressed = false;
@@ -97,6 +94,9 @@ void loop() {
     delay(700);
     Serial.println("GO");
     delay(700);
+    
+
+    
     if(gateState == 1) {
       
       //Arduino Motor Shield
@@ -173,11 +173,17 @@ void governActuatorMovingVars() {
   // is pressed.
   if(isGateButtonPressed) {
     gatePressed = true;
-    Serial.println("Gate Button Pressed");
+    Serial.print("Gate Button Pressed: ");
+    Serial.println(isGateButtonPressed);
     
     // If the gate is stopped, let's move.
     // If the gate is moving, let's stop. 
     isGateMoving != isGateMoving;
+    
+    // Show Gate Position
+    Serial.print("Gate Position: ");
+    gatePos = analogRead(gatePositionPin);
+    Serial.println(gatePos);
 
   }
   
@@ -185,11 +191,37 @@ void governActuatorMovingVars() {
   // is pressed.
   if(isLockButtonPressed) {
     lockPressed = true;
-    Serial.println("Lock Button Pressed");
+    //Serial.println("Lock Button Pressed");
     
     // If the lock is stopped, let's move.
     // If the lock is moving, let's stop
     isLockMoving != isLockMoving;
   }
   
+}
+
+// Stops the lock from extending past the
+// given pos.
+void stopLockAt(int pos) {
+
+  gatePos = analogRead(gatePositionPin);
+  
+  Serial.print("Gate Position: ");
+  Serial.println(gatePos);
+  
+  /*Serial.print("GatePos: ");
+  Serial.println(gatePos);
+  Serial.print("Pos: ");
+  Serial.println(pos); */
+  
+  if(gatePos > pos) {
+    //digitalWrite(gateDirection, LOW);
+    //digitalWrite(gateBrake, HIGH);
+    //digitalWrite(gateSpeed, 0);
+    Serial.println("----------------");
+    Serial.println("Motion Interuppted");
+    Serial.print("Gate Position: ");
+    Serial.println(gatePos);
+    Serial.println("----------------");   
+  }
 }
