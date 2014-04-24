@@ -1,6 +1,10 @@
 /*
   Remote Farm Gate
 */
+
+int maxSpeed = 255;
+int taxiSpeed = 120;
+
 //LED Pins
 int ledPin = 2;
 
@@ -87,13 +91,13 @@ void loop() {
     Serial.print("Current State: ");
     Serial.println(gateState);
     Serial.print("Moving the gate in 3");
-    delay(700);
+    delay(500);
     Serial.print(" 2");
-    delay(700);
+    delay(500);
     Serial.println(" 1");
-    delay(700);
+    delay(500);
     Serial.println("GO");
-    delay(700);
+    delay(500);
     
 
     
@@ -102,7 +106,7 @@ void loop() {
       //Arduino Motor Shield
       digitalWrite(gateDirection, HIGH);
       digitalWrite(gateBrake, LOW);
-      analogWrite(gateSpeed, 255);
+      analogWrite(gateSpeed, maxSpeed);
       
       digitalWrite(ledPin, HIGH);
 
@@ -124,7 +128,7 @@ void loop() {
       //Arduino Motor Shield
       digitalWrite(gateDirection, LOW);
       digitalWrite(gateBrake, LOW); 
-      analogWrite(gateSpeed, 255); 
+      analogWrite(gateSpeed, maxSpeed); 
       
       digitalWrite(ledPin, HIGH);
       
@@ -178,7 +182,12 @@ void governActuatorMovingVars() {
     
     // If the gate is stopped, let's move.
     // If the gate is moving, let's stop. 
-    isGateMoving != isGateMoving;
+    if(isGateMoving) {
+      isGateMoving = false;
+    } else {
+      isGateMoving = true;
+    }
+    
     
     // Show Gate Position
     Serial.print("Gate Position: ");
@@ -195,7 +204,12 @@ void governActuatorMovingVars() {
     
     // If the lock is stopped, let's move.
     // If the lock is moving, let's stop
-    isLockMoving != isLockMoving;
+    if(isLockMoving) {
+      isLockMoving = false;
+    } else {
+      isLockMoving = true; 
+    }
+
   }
   
 }
@@ -206,8 +220,31 @@ void stopGateAt(int pos) {
 
   gatePos = analogRead(gatePositionPin);
   
-  Serial.print("Gate Position: ");
-  Serial.println(gatePos);
+  //Serial.print("Gate Position: ");
+  
+  if(isGateMoving) {
+    delay(100);
+    
+    // Only look at the reading if it is below 100. 
+    // This might be due to voltage drop because of
+    // the resistance of me using 3 feet of wire between
+    // the actuator and controller.
+    if(gatePos < 100) {
+      if(gatePos < 26) {
+       analogWrite(gateSpeed, taxiSpeed);
+      }
+      else if (gatePos > 33) {
+       analogWrite(gateSpeed, taxiSpeed);
+      } 
+      else {
+        analogWrite(gateSpeed, maxSpeed);
+      }
+    }
+   
+    Serial.println(gatePos);
+    
+   
+  }
   
   
   
