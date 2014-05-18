@@ -1,12 +1,22 @@
+#include <IRremote.h>
+
 /*
   Remote Farm Gate
+  Home Button is NEC: 5743C03F
+  Back Button is NEC: 57436699
 */
 
 int maxSpeed = 255;
-int taxiSpeed = 120;
+int taxiSpeed = 80;
 
 //LED Pins
 int ledPin = 2;
+
+//IRRemote Pin & Setup
+int RECV_PIN = 6;
+
+IRrecv irrecv(RECV_PIN);
+decode_results results;
 
 //Motor Pins - Arduino Shield
 
@@ -23,7 +33,7 @@ int lockCurrent = 1;
 int gateStartStopPin = 4;
 int lockStartStopPin = 5;
 
-int gatePositionPin = 0;
+int gatePositionPin = 4;
 int lockPositionPin = 1;
 
 int isGateMoving = false;
@@ -51,13 +61,16 @@ void setup() {
   //LED
   pinMode(ledPin, OUTPUT);
   
+  // IR Remote Setup
+  irrecv.enableIRIn();  // Start the receiver
+  
   //Button to stop and start actuator.
   pinMode(gateStartStopPin, INPUT_PULLUP);
   pinMode(lockStartStopPin, INPUT_PULLUP);
   
   //Pins to get the gates current Position
-  pinMode(gatePositionPin, INPUT);
-  pinMode(lockPositionPin, INPUT);
+  //pinMode(gatePositionPin, INPUT);
+  //pinMode(lockPositionPin, INPUT);
 
   delay(1000);
   Serial.println("\nInitializing Gate Motor....");
@@ -81,9 +94,13 @@ void setup() {
 
 void loop() {
   
+  getIrRemoteSignal();
+  
   governActuatorMovingVars();
   
-  stopGateAt(600);  
+  //stopGateAt(600);  
+  gatePos = analogRead(gatePositionPin);
+  //Serial.println(gatePos);
     
   if(gatePressed) {
     gatePressed = false;
@@ -106,7 +123,7 @@ void loop() {
       //Arduino Motor Shield
       digitalWrite(gateDirection, HIGH);
       digitalWrite(gateBrake, LOW);
-      analogWrite(gateSpeed, maxSpeed);
+      analogWrite(gateSpeed, taxiSpeed);
       
       digitalWrite(ledPin, HIGH);
 
@@ -128,7 +145,7 @@ void loop() {
       //Arduino Motor Shield
       digitalWrite(gateDirection, LOW);
       digitalWrite(gateBrake, LOW); 
-      analogWrite(gateSpeed, maxSpeed); 
+      analogWrite(gateSpeed, taxiSpeed); 
       
       digitalWrite(ledPin, HIGH);
       
@@ -158,6 +175,47 @@ void loop() {
   
   
   
+  
+}
+
+
+// Captures and decodes Remote Control Signal
+void getIrRemoteSignal() {
+  
+  if (irrecv.decode(&results)) {
+     Serial.println("Remote Control Signal: ");
+     // Serial.println(results..value, HEX);
+     formatDecodeResult(&results);
+     irrecv.resume(); // Receive the next value 
+  }
+  
+}
+
+// Formats and outputs the content of the decode result
+// object to the serial port.
+void formatDecodeResult(const decode_results* results) {
+  
+  const int protocol = results->decode_type;
+  Serial.print("Protocol: ");
+  
+  if (protocol == UNKNOWN) {
+    Serial.println("not recognized");
+  } else {
+    if (protocol == NEC) {
+      Serial.println("NEC"); 
+    } else if (protocol == RC5) {
+      Serial.println("RC5"); 
+    } else if (protocol == RC6) {
+      Serial.println("RC6"); 
+    } else if (protocol == SONY) {
+      Serial.println("SONY"); 
+    }
+    Serial.print("Value: ");
+    Serial.print(results->value, HEX);
+    Serial.print(" (");
+    Serial.print(results->bits, DEC);
+    Serial.println(" bits)");
+  }
   
 }
 
@@ -229,17 +287,17 @@ void stopGateAt(int pos) {
     // This might be due to voltage drop because of
     // the resistance of me using 3 feet of wire between
     // the actuator and controller.
-    if(gatePos < 100) {
-      if(gatePos < 26) {
+    //if(gatePos < 200) {
+      if(gatePos < 200) {
        analogWrite(gateSpeed, taxiSpeed);
       }
-      else if (gatePos > 33) {
+      else if (gatePos > 750) {
        analogWrite(gateSpeed, taxiSpeed);
       } 
       else {
         analogWrite(gateSpeed, maxSpeed);
       }
-    }
+    //}
    
     Serial.println(gatePos);
     
@@ -250,10 +308,10 @@ void stopGateAt(int pos) {
   
   if(gatePos > pos) {
     
-    Serial.println("----------------");
+   /* Serial.println("----------------");
     Serial.println("Motion Interuppted");
     Serial.print("Gate Position: ");
     Serial.println(gatePos);
-    Serial.println("----------------");   
+    Serial.println("----------------");   */
   }
 }
