@@ -6,35 +6,39 @@
   Back Button is NEC: 57436699
 */
 
-int maxSpeed = 255;
-int taxiSpeed = 80;
-
+const int speed1 = 50,
+    speed2 = 100,
+    speed3 = 150,
+    speed4 = 200,
+    speed5 = 255;
+    
 //LED Pins
-int ledPin = 2;
+const int ledPin = 2;
 
 //IRRemote Pin & Setup
-int RECV_PIN = 6;
-
+const int RECV_PIN = 6;
 IRrecv irrecv(RECV_PIN);
 decode_results results;
+int signalReceived = false;
+String signal;
 
 //Motor Pins - Arduino Shield
+const int gateCurrent = 0,
+          lockCurrent = 1,
+          gateSpeed = 3,
+          lockBrake = 8,
+          gateBrake = 9,
+          lockSpeed = 11,
+          gateDirection = 12,
+          lockDirection = 13;
 
-int gateDirection = 12;
-int gateSpeed = 3;
-int gateBrake = 9;
-int gateCurrent = 0;
-int lockDirection = 13;
-int lockSpeed = 11;
-int lockBrake = 8;
-int lockCurrent = 1;
 
-
+// Buttons to manually stop/start motor
 int gateStartStopPin = 4;
 int lockStartStopPin = 5;
 
-int gatePositionPin = 4;
-int lockPositionPin = 1;
+const int analogGatePositionPin = 4;
+
 
 int isGateMoving = false;
 int isLockMoving = false;
@@ -56,9 +60,10 @@ int lockPressed = false;
 
 void setup() {
   
+  // Initiate Serial Port
   Serial.begin(9600);
   
-  //LED
+  // Set LED Pin
   pinMode(ledPin, OUTPUT);
   
   // IR Remote Setup
@@ -68,25 +73,21 @@ void setup() {
   pinMode(gateStartStopPin, INPUT_PULLUP);
   pinMode(lockStartStopPin, INPUT_PULLUP);
   
-  //Pins to get the gates current Position
-  //pinMode(gatePositionPin, INPUT);
-  //pinMode(lockPositionPin, INPUT);
-
-  delay(1000);
-  Serial.println("\nInitializing Gate Motor....");
-  Serial.print("Gate Position Pin: ");
-  Serial.println(gatePositionPin);
   
+  // Initialize Linear Actuators
   pinMode(gateDirection, OUTPUT);
   pinMode(gateBrake, OUTPUT);
-  delay(400);
   
-  Serial.println("Initiating Lock Motor....");
+  //%%%%%%%%%  IS THERE A CLEAR FUNCTION %%%%%%%%%%
+  //Serial.clear();
+  Serial.println("Gate Actuator Initialized\n\n");
+  
   pinMode(lockDirection, OUTPUT);
   pinMode(lockBrake, OUTPUT);
-  delay(400);
   
-  Serial.println("Remote Gate Initiated.");
+  Serial.println("Lock Actuator Initialized\n\n");
+  delay(400);
+  Serial.println("Remote Gate Activated.");
  
   
 }
@@ -94,12 +95,17 @@ void setup() {
 
 void loop() {
   
-  getIrRemoteSignal();
+  // Get the signal if there is one.
+  // Start a Gate Sequence.
+  signal = getIrRemoteSignal();
+  if(signalReceived) {
+    signalReceived = false;
+    runGateSequence(signal); // &&&& BUILD THIS FUNCTION &&&&
   
   governActuatorMovingVars();
   
   //stopGateAt(600);  
-  gatePos = analogRead(gatePositionPin);
+  gatePos = analogRead(analogGatePositionPin);
   //Serial.println(gatePos);
     
   if(gatePressed) {
@@ -123,7 +129,7 @@ void loop() {
       //Arduino Motor Shield
       digitalWrite(gateDirection, HIGH);
       digitalWrite(gateBrake, LOW);
-      analogWrite(gateSpeed, taxiSpeed);
+      analogWrite(gateSpeed, speed5);
       
       digitalWrite(ledPin, HIGH);
 
@@ -145,7 +151,7 @@ void loop() {
       //Arduino Motor Shield
       digitalWrite(gateDirection, LOW);
       digitalWrite(gateBrake, LOW); 
-      analogWrite(gateSpeed, taxiSpeed); 
+      analogWrite(gateSpeed, speed5); 
       
       digitalWrite(ledPin, HIGH);
       
@@ -171,30 +177,24 @@ void loop() {
     lockPressed = false;
   }
   
-  
-  
-  
-  
-  
 }
 
-
 // Captures and decodes Remote Control Signal
-void getIrRemoteSignal() {
-  
+String getIrRemoteSignal() {
+  String signal;
   if (irrecv.decode(&results)) {
      Serial.println("Remote Control Signal: ");
-     // Serial.println(results..value, HEX);
-     formatDecodeResult(&results);
+     signal = formatDecodeResult(&results);
      irrecv.resume(); // Receive the next value 
+     signalReceived = true;
   }
-  
+  return signal;
 }
 
 // Formats and outputs the content of the decode result
 // object to the serial port.
-void formatDecodeResult(const decode_results* results) {
-  
+String formatDecodeResult(const decode_results* results) {
+  String value;
   const int protocol = results->decode_type;
   Serial.print("Protocol: ");
   
@@ -215,8 +215,9 @@ void formatDecodeResult(const decode_results* results) {
     Serial.print(" (");
     Serial.print(results->bits, DEC);
     Serial.println(" bits)");
+    value = String(results->value, HEX);
   }
-  
+  return value;
 }
 
 // Sets and governs the global actuator moving 
@@ -249,7 +250,7 @@ void governActuatorMovingVars() {
     
     // Show Gate Position
     Serial.print("Gate Position: ");
-    gatePos = analogRead(gatePositionPin);
+    gatePos = analogRead(analogGatePositionPin);
     Serial.println(gatePos);
 
   }
@@ -276,7 +277,7 @@ void governActuatorMovingVars() {
 // given pos.
 void stopGateAt(int pos) {
 
-  gatePos = analogRead(gatePositionPin);
+  gatePos = analogRead(analogGatePositionPin);
   
   //Serial.print("Gate Position: ");
   
@@ -289,13 +290,13 @@ void stopGateAt(int pos) {
     // the actuator and controller.
     //if(gatePos < 200) {
       if(gatePos < 200) {
-       analogWrite(gateSpeed, taxiSpeed);
+       analogWrite(gateSpeed, speed5);
       }
       else if (gatePos > 750) {
-       analogWrite(gateSpeed, taxiSpeed);
+       analogWrite(gateSpeed, speed5);
       } 
       else {
-        analogWrite(gateSpeed, maxSpeed);
+        analogWrite(gateSpeed, speed5);
       }
     //}
    
