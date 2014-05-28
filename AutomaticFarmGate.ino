@@ -2,8 +2,18 @@
 
 /*
   Remote Farm Gate
+  ----------------
   Home Button is NEC: 5743C03F
   Back Button is NEC: 57436699
+  
+  
+  NOTE: We might want the ability to control gate
+  manually from the breadboard.  This is how.
+  
+  int gateStartStopPin = 4;
+  pinMode(gateStartStopPin, INPUT_PULLUP);
+  isGateButtonPressed = digitalRead(gateStartStopPin);
+    
 */
 
 const int speed1 = 50,
@@ -33,21 +43,17 @@ const int gateCurrent = 0,
           lockDirection = 13;
 
 
-// Buttons to manually stop/start motor
-int gateStartStopPin = 4;
-int lockStartStopPin = 5;
-
+// Pin to get the current position of 
+// the gate actuator.  Don't use 0.
+// It's used by the motor controller
+// already to output the amperage.
 const int analogGatePositionPin = 4;
-
+int gatePos = 0;
 
 int isGateMoving = false;
 int isLockMoving = false;
-int isGateButtonPressed = true;
-int isLockButtonPressed = false;
 
-int gateState = 1;
 
-int gatePos = 0;
 
 // These are used to switch the
 // motors on and off and insure
@@ -68,10 +74,6 @@ void setup() {
   
   // IR Remote Setup
   irrecv.enableIRIn();  // Start the receiver
-  
-  //Button to stop and start actuator.
-  pinMode(gateStartStopPin, INPUT_PULLUP);
-  pinMode(lockStartStopPin, INPUT_PULLUP);
   
   
   // Initialize Linear Actuators
@@ -96,86 +98,17 @@ void setup() {
 void loop() {
   
   // Get the signal if there is one.
-  // Start a Gate Sequence.
+  // Change the Current State of the Gate.
   signal = getIrRemoteSignal();
   if(signalReceived) {
     signalReceived = false;
-    runGateSequence(signal); // &&&& BUILD THIS FUNCTION &&&&
-  
-  governActuatorMovingVars();
+    changeGateState(signal); // &&&& BUILD THIS FUNCTION &&&&
+  }
+  //governActuatorMovingVars();
   
   //stopGateAt(600);  
-  gatePos = analogRead(analogGatePositionPin);
+  //gatePos = analogRead(analogGatePositionPin);
   //Serial.println(gatePos);
-    
-  if(gatePressed) {
-    gatePressed = false;
-    
-    Serial.print("Current State: ");
-    Serial.println(gateState);
-    Serial.print("Moving the gate in 3");
-    delay(500);
-    Serial.print(" 2");
-    delay(500);
-    Serial.println(" 1");
-    delay(500);
-    Serial.println("GO");
-    delay(500);
-    
-
-    
-    if(gateState == 1) {
-      
-      //Arduino Motor Shield
-      digitalWrite(gateDirection, HIGH);
-      digitalWrite(gateBrake, LOW);
-      analogWrite(gateSpeed, speed5);
-      
-      digitalWrite(ledPin, HIGH);
-
-      gateState = 2;
-      
-    } else if (gateState == 2) {
-      
-      digitalWrite(gateDirection, LOW);
-      digitalWrite(gateBrake, HIGH);
-      analogWrite(gateSpeed, 0);
-      
-      digitalWrite(ledPin, LOW);
-            
-      gateState = 3;
-
-      
-    } else if(gateState == 3) {
-      
-      //Arduino Motor Shield
-      digitalWrite(gateDirection, LOW);
-      digitalWrite(gateBrake, LOW); 
-      analogWrite(gateSpeed, speed5); 
-      
-      digitalWrite(ledPin, HIGH);
-      
-      gateState = 4;
-      
-    
-    } else if(gateState == 4) {
-
-      digitalWrite(gateDirection, LOW);
-      digitalWrite(gateBrake, HIGH);
-      analogWrite(gateSpeed, 0); 
-      
-      digitalWrite(ledPin, LOW);
-      
-      
-      gateState = 1;
-      
-    }
-    
-  }
-  
-  if(isLockMoving && lockPressed) {
-    lockPressed = false;
-  }
   
 }
 
@@ -226,52 +159,52 @@ String formatDecodeResult(const decode_results* results) {
   // This function should also check the position of
   // the actuators and set the moving booleans
   // accordingly.
-void governActuatorMovingVars() {
-  
-  isGateButtonPressed = digitalRead(gateStartStopPin);
-  isLockButtonPressed = digitalRead(lockStartStopPin);
-  
-  
-  // Change the Gate Moving Boolean when the button
-  // is pressed.
-  if(isGateButtonPressed) {
-    gatePressed = true;
-    Serial.print("Gate Button Pressed: ");
-    Serial.println(isGateButtonPressed);
-    
-    // If the gate is stopped, let's move.
-    // If the gate is moving, let's stop. 
-    if(isGateMoving) {
-      isGateMoving = false;
-    } else {
-      isGateMoving = true;
-    }
-    
-    
-    // Show Gate Position
-    Serial.print("Gate Position: ");
-    gatePos = analogRead(analogGatePositionPin);
-    Serial.println(gatePos);
-
-  }
-  
-  // Change the Lock Moving Boolean when the button
-  // is pressed.
-  if(isLockButtonPressed) {
-    lockPressed = true;
-    //Serial.println("Lock Button Pressed");
-    
-    // If the lock is stopped, let's move.
-    // If the lock is moving, let's stop
-    if(isLockMoving) {
-      isLockMoving = false;
-    } else {
-      isLockMoving = true; 
-    }
-
-  }
-  
-}
+//void governActuatorMovingVars() {
+//  
+//  isGateButtonPressed = digitalRead(gateStartStopPin);
+//  isLockButtonPressed = digitalRead(lockStartStopPin);
+//  
+//  
+//  // Change the Gate Moving Boolean when the button
+//  // is pressed.
+//  if(isGateButtonPressed) {
+//    gatePressed = true;
+//    Serial.print("Gate Button Pressed: ");
+//    Serial.println(isGateButtonPressed);
+//    
+//    // If the gate is stopped, let's move.
+//    // If the gate is moving, let's stop. 
+//    if(isGateMoving) {
+//      isGateMoving = false;
+//    } else {
+//      isGateMoving = true;
+//    }
+//    
+//    
+//    // Show Gate Position
+//    Serial.print("Gate Position: ");
+//    gatePos = analogRead(analogGatePositionPin);
+//    Serial.println(gatePos);
+//
+//  }
+//  
+//  // Change the Lock Moving Boolean when the button
+//  // is pressed.
+//  if(isLockButtonPressed) {
+//    lockPressed = true;
+//    //Serial.println("Lock Button Pressed");
+//    
+//    // If the lock is stopped, let's move.
+//    // If the lock is moving, let's stop
+//    if(isLockMoving) {
+//      isLockMoving = false;
+//    } else {
+//      isLockMoving = true; 
+//    }
+//
+//  }
+//  
+//}
 
 // Stops the lock from extending past the
 // given pos.
@@ -316,3 +249,80 @@ void stopGateAt(int pos) {
     Serial.println("----------------");   */
   }
 }
+
+void changeGateState(String signal) {
+  
+  // If the Home Button is pressed, and the 
+  // gate is moving, stop the gate.
+  
+  // If the Home Button is pressed, and the 
+  // gate is stopped, get the current position
+  // and start moving at the cooresponding speed
+  // in the opening direction.
+  
+  // If the Back Button is pressed, and the
+  // gate is moving, stop the gate.
+  
+  // If the Back Button is pressed, and the
+  // gate is stopped, get the current position
+  // and start moving at the cooresponding speed
+  // in the closing direction
+}
+
+
+// Move the gate toward the open position.
+// Params:
+// rate: - speed to move the gate
+void moveOpen(int rate) {
+  
+   // Set the moving state variable
+   isGateMoving = true;
+  
+   // Move the Actuator  
+   digitalWrite(gateDirection, HIGH);
+   digitalWrite(gateBrake, LOW);
+   analogWrite(gateSpeed, rate);
+   
+   // Turn on the LED to signal movement.   
+   digitalWrite(ledPin, HIGH);
+}
+
+// Move the gate toward the closed position.
+// Params:
+// rate: - speed to move the gate
+void moveClosed(int rate) {
+  
+  // Set moving state variable
+  isGateMoving = true;
+  
+  // Move the Actuator
+  digitalWrite(gateDirection, LOW);
+  digitalWrite(gateBrake, LOW); 
+  analogWrite(gateSpeed, rate);
+  
+  // Turn on the LED to signal movement.    
+  digitalWrite(ledPin, HIGH);
+  
+}
+
+// Stop the gate
+// TODO: Incrementally slow the gate down rather
+// than a jolting stop.  Then again, the most likely
+// reason for wanting to stop the gate before the
+// completed action is most likely for an emergency.
+void stopGate() {
+  
+  // Set the moving state variable
+  isGateMoving = false;
+  
+  // Stop the Actuator.
+  digitalWrite(gateDirection, LOW);
+  digitalWrite(gateBrake, HIGH);
+  analogWrite(gateSpeed, 0); 
+      
+  // Turn off the LED to signal stopped.    
+  digitalWrite(ledPin, LOW);
+  
+}
+
+
