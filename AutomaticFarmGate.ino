@@ -6,7 +6,6 @@
   Home Button is NEC: 5743C03F
   Back Button is NEC: 57436699
   
-  
   NOTE: We might want the ability to control gate
   manually from the breadboard.  This is how.
   
@@ -16,11 +15,30 @@
     
 */
 
+// IR Code Assignments
+const String homeButton = String('5743C03F');
+const String backButton = String('57436699');
+
+// Actuator Speeds
 const int speed1 = 50,
-    speed2 = 100,
-    speed3 = 150,
-    speed4 = 200,
-    speed5 = 255;
+          speed2 = 100,
+          speed3 = 150,
+          speed4 = 200,
+          speed5 = 255;
+    
+// Actuator Positions (eg. 1023 / 6 = 171)
+const int pos1 = 171,
+          pos2 = 342,
+          pos3 = 513,
+          pos4 = 684,
+          pos5 = 855;
+
+
+// The map function is also a good alternative to this, but
+// we've already done the lather so..... what evs :)
+// ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
+    
+
     
 //LED Pins
 const int ledPin = 2;
@@ -52,8 +70,6 @@ int gatePos = 0;
 
 int isGateMoving = false;
 int isLockMoving = false;
-
-
 
 // These are used to switch the
 // motors on and off and insure
@@ -89,9 +105,7 @@ void setup() {
   
   Serial.println("Lock Actuator Initialized\n\n");
   delay(400);
-  Serial.println("Remote Gate Activated.");
- 
-  
+  Serial.println("Remote Gate Activated.");  
 }
 
 
@@ -252,21 +266,145 @@ void stopGateAt(int pos) {
 
 void changeGateState(String signal) {
   
+  
   // If the Home Button is pressed, and the 
   // gate is moving, stop the gate.
+  if(signal == homeButton && isGateMoving) {
+    stopGate();
+  }
   
   // If the Home Button is pressed, and the 
   // gate is stopped, get the current position
   // and start moving at the cooresponding speed
   // in the opening direction.
+  else if(signal == homeButton && !isGateMoving) {
+    //openTheGateIncrementally();  // &&&&& BUILD THIS FUNCTION &&&&&
+  }
   
   // If the Back Button is pressed, and the
   // gate is moving, stop the gate.
+  else if(signal == backButton && isGateMoving) {
+   stopGate(); 
+  }
   
   // If the Back Button is pressed, and the
   // gate is stopped, get the current position
   // and start moving at the cooresponding speed
   // in the closing direction
+  else if(signal == backButton && !isGateMoving) {
+    //closeTheGateIncrementally(); // &&&&& BUILD THIS FUNCTION &&&&& 
+  }
+}
+
+void openTheGateIncrementally() {
+  
+
+  isGateMoving = true;
+  int failSafeCounter = 0;
+  
+  // Turn on LED while we are moving.
+  switchLED(isGateMoving);
+
+  
+  // Check to see if the position is the same
+  // over 5 loops. This will mean the gate is
+  // not moving anymore.  Release from the loop.
+  while(isGateMoving) {
+    
+    
+    // While loops are dangerous.  We need a fail safe
+    // to break from the loop.
+    failSafeCounter++;
+    
+    if(failSafeCounter == 3000) {
+      Serial.println("Fail Safe hit 3000");
+    }
+    
+    if(failSafeCounter == 7000) {
+      Serial.println("Fail Safe hit 7000"); 
+    }
+    
+    if(failSafeCounter > 10000) {
+      Serial.println("Fail Safe Hit... Breaking Loop");
+      isGateMoving = false;
+    }
+    
+    gatePos = analogRead(analogGatePositionPin);
+    
+    // Now we start actually moving the gate YEAH :)
+    
+    if(gatePos < pos1) {
+      moveOpen(speed1);
+    } else if (gatePos < pos2) {
+      moveOpen(speed2);
+    }
+   
+    
+    //Put this in the last moveOpen function
+    isGateMoving = checkGateMotion(true);
+ 
+  } // While Loop
+  Serial.println("Past While Loop");
+  
+  // Turn off LED now that we've stopped.
+  switchLED(isGateMoving);
+  
+}
+
+
+/*
+  Tests if the gate is in the same position over a period
+  of 50ms.  This function is primarily used to turn the
+  isGateMoving variable back to false, if the internal 
+  switches in the actuators have stopped the piston at
+  either end of the cylinder.
+  Params: -> moving (boolean) is gate currently moving
+  Returns:-> isSamePos (boolean) has gate moved over last 50 ms.
+*/
+int checkGateMotion(int moving) {
+  
+    int isSamePos = true;
+    int curPos, lastPos;
+     
+     // Let's get the position from before the first time delay.
+     lastPos = analogRead(analogGatePositionPin);
+    
+    for(int i = 0; i < 5; i++) {
+      
+      // We check for isSamePos here because it
+      // is true when counter is 0.  If at anytime
+      // the gatePos does not equal the previous one
+      // the gate is still moving and we don't need
+      // to continue.
+      if(isSamePos) {
+        
+        delay(10);
+       
+        // Get the current gate position
+        curPos = analogRead(analogGatePositionPin);
+        
+        if(lastPos == curPos) {
+          lastPos = curPos; 
+          isSamePos = true;
+        } else {
+          isSamePos = false;
+          // NOTE: We could probably use a break here instead.
+          // It would be more performant.
+        } 
+      }
+    }
+    
+    return isSamePos;
+}
+
+// Turns the LED on or off
+// Params -> onState (boolean) turn on or off
+void switchLED(int onState) {
+   if(onState) {
+     digitalWrite(ledPin, HIGH);
+   } else {
+     digitalWrite(ledPin, LOW);
+   }
 }
 
 
@@ -282,9 +420,6 @@ void moveOpen(int rate) {
    digitalWrite(gateDirection, HIGH);
    digitalWrite(gateBrake, LOW);
    analogWrite(gateSpeed, rate);
-   
-   // Turn on the LED to signal movement.   
-   digitalWrite(ledPin, HIGH);
 }
 
 // Move the gate toward the closed position.
@@ -299,10 +434,6 @@ void moveClosed(int rate) {
   digitalWrite(gateDirection, LOW);
   digitalWrite(gateBrake, LOW); 
   analogWrite(gateSpeed, rate);
-  
-  // Turn on the LED to signal movement.    
-  digitalWrite(ledPin, HIGH);
-  
 }
 
 // Stop the gate
@@ -319,10 +450,6 @@ void stopGate() {
   digitalWrite(gateDirection, LOW);
   digitalWrite(gateBrake, HIGH);
   analogWrite(gateSpeed, 0); 
-      
-  // Turn off the LED to signal stopped.    
-  digitalWrite(ledPin, LOW);
-  
 }
 
 
