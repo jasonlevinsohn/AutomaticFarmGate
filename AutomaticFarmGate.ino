@@ -6,6 +6,10 @@
   Home Button is NEC: 5743C03F
   Back Button is NEC: 57436699
   
+  TODO:
+  - Functions to extend / retract the lock upon opening and closing.
+  - Function to position gate at exact position using Serial input
+  
   NOTE: We might want the ability to control gate
   manually from the breadboard.  This is how.
   
@@ -27,19 +31,25 @@ const int speed1 = 50,
           speed5 = 255;
     
 // Actuator Positions (eg. 1023 / 6 = 171)
-const int pos1 = 171,
-          pos2 = 342,
-          pos3 = 513,
-          pos4 = 684,
-          pos5 = 855;
+const int pos1  = 85,
+          pos2  = 170,
+          pos3  = 255,
+          pos4  = 340,
+          pos5  = 425,
+          pos6  = 510,
+          pos7  = 595,
+          pos8  = 680,
+          pos9  = 765,
+          pos10 = 850,
+          pos11 = 935;
+           
 
 
 // The map function is also a good alternative to this, but
 // we've already done the lather so..... what evs :)
 // ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
-    
-
-    
+   
+   
 //LED Pins
 const int ledPin = 2;
 
@@ -296,22 +306,111 @@ void changeGateState(String signal) {
   }
 }
 
-void openTheGateIncrementally() {
+/*
+  Closes the gate starting out slowly and gradually
+  getting to full speed in the middle of the pistons
+  reach.  After the center point in gradually slows
+  down until it reaches the position set to align 
+  with the lock.
+*/
+void closeTheGateIncrementally() {
   
-
   isGateMoving = true;
   int failSafeCounter = 0;
+  int oneTime = true;
   
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
 
-  
   // Check to see if the position is the same
   // over 5 loops. This will mean the gate is
   // not moving anymore.  Release from the loop.
   while(isGateMoving) {
+        
+    // While loops are dangerous.  We need a fail safe
+    // to break from the loop.
+    failSafeCounter++;
     
+    if(failSafeCounter == 3000) {
+      Serial.println("Fail Safe hit 3000");
+    }
     
+    if(failSafeCounter == 7000) {
+      Serial.println("Fail Safe hit 7000"); 
+    }
+    
+    if(failSafeCounter > 10000) {
+      Serial.println("Fail Safe Hit... Breaking Loop");
+      isGateMoving = false;
+    }
+    
+    gatePos = analogRead(analogGatePositionPin);
+    
+    if(gatePos < pos1) {
+      moveOpen(speed1);
+    } else if (gatePos < pos2) {
+      moveOpen(speed2);
+    } else if (gatePos < pos3) {
+      moveOpen(speed3);
+    } else if (gatePos < pos4) {
+      moveOpen(speed4);
+    } else if (gatePos < pos5) {
+      moveOpen(speed5);
+    } else if (gatePos < pos6) {
+      moveOpen(speed4);
+    } else if (gatePos < pos7) {
+      moveOpen(speed3);
+    } else if (gatePos < pos8) {
+      moveOpen(speed2);
+    } else if (gatePos < pos9) {
+      moveOpen(speed1);
+      // Debug: Let's print the position now.
+      if (oneTime) {
+        oneTime = false; 
+        Serial.println("Almost Closed,  Printing position....");
+      }
+      Serial.print(gatePos);
+    }
+      
+      /* %%%%%%%%%  AFTER INITIAL TESTING %%%%%%%%%%%%
+            Put the part to line up the gate with the lock here.
+            We are also going to need to implement a serial input
+            method to move the gate to an exact input position.
+      
+      // %%%%%%%%%  AFTER INITIAL TESTING %%%%%%%%%%%% */
+    
+    //Put this in the last moveOpen function
+    isGateMoving = checkGateMotion(true);
+ 
+  } // While Loop
+  Serial.println("Past While Loop");
+  
+  // Turn off LED now that we've stopped.
+  switchLED(isGateMoving);
+  
+}
+
+/*
+  Opens the gate starting out slowly and gradually
+  getting to full speed in the middle of the pistons
+  reach.  After the center point in gradually slows
+  down until it reaches the position set to align 
+  with the lock.
+*/
+void openTheGateIncrementally() {
+  
+  isGateMoving = true;
+  int failSafeCounter = 0;
+  int oneTime = true;
+  
+  // Turn on LED while we are moving.
+  switchLED(isGateMoving);
+
+  // Check to see if the position is the same
+  // over 5 loops. This will mean the gate is
+  // not moving anymore.  Release from the loop.
+  while(isGateMoving) {
+        
     // While loops are dangerous.  We need a fail safe
     // to break from the loop.
     failSafeCounter++;
@@ -333,13 +432,32 @@ void openTheGateIncrementally() {
     
     // Now we start actually moving the gate YEAH :)
     
-    if(gatePos < pos1) {
-      moveOpen(speed1);
-    } else if (gatePos < pos2) {
-      moveOpen(speed2);
+    if(gatePos > pos9) {
+      moveClosed(speed1);
+    } else if (gatePos > pos8) {
+      moveClosed(speed2);
+    } else if (gatePos > pos7) {
+      moveClosed(speed3);
+    } else if (gatePos > pos6) {
+      moveClosed(speed4);
+    } else if (gatePos > pos5) {
+      moveClosed(speed5);
+    } else if (gatePos > pos4) {
+      moveClosed(speed4);
+    } else if (gatePos > pos3) {
+      moveClosed(speed3);
+    } else if (gatePos > pos2) {
+      moveClosed(speed2);
+    } else if (gatePos > pos1) {
+      moveClosed(speed1);
+      // Debug: Let's print the position now.
+      if (oneTime) {
+        oneTime = false; 
+        Serial.println("Almost Open,  Printing position....");
+      }
+      Serial.print(gatePos);
     }
-   
-    
+      
     //Put this in the last moveOpen function
     isGateMoving = checkGateMotion(true);
  
