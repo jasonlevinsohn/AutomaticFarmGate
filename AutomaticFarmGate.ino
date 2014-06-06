@@ -7,7 +7,8 @@
   Back Button is NEC: 57436699
   
   TODO:
-  - Functions to extend / retract the lock upon opening and closing.
+  - Functions to extend / retract the lock upon opening and closing - DONE
+  - Higher Functions to call extend/retract lower function called lock/unlock Gate
   - Function to position gate at exact position using Serial input
   
   NOTE: We might want the ability to control gate
@@ -42,8 +43,7 @@ const int pos1  = 85,
           pos9  = 765,
           pos10 = 850,
           pos11 = 935;
-           
-
+          
 
 // The map function is also a good alternative to this, but
 // we've already done the lather so..... what evs :)
@@ -72,11 +72,14 @@ const int gateCurrent = 0,
 
 
 // Pin to get the current position of 
-// the gate actuator.  Don't use 0.
+// the actuators.  Don't use 0.
 // It's used by the motor controller
 // already to output the amperage.
 const int analogGatePositionPin = 4;
+const int analogLockPositionPin = 5;
+
 int gatePos = 0;
+int lockPos = 0;
 
 int isGateMoving = false;
 int isLockMoving = false;
@@ -88,6 +91,13 @@ int isLockMoving = false;
 // cycles.
 int gatePressed = false;
 int lockPressed = false;
+
+
+// We might need these variables, but it also
+// might be overkill.  We are going to punt on
+// this now, until we run into problems.
+int gateUnlocked = false;
+int gateLocked = false;
 
 
 void setup() {
@@ -105,6 +115,7 @@ void setup() {
   // Initialize Linear Actuators
   pinMode(gateDirection, OUTPUT);
   pinMode(gateBrake, OUTPUT);
+ 
   
   //%%%%%%%%%  IS THERE A CLEAR FUNCTION %%%%%%%%%%
   //Serial.clear();
@@ -347,23 +358,23 @@ void closeTheGateIncrementally() {
     gatePos = analogRead(analogGatePositionPin);
     
     if(gatePos < pos1) {
-      moveOpen(speed1);
+      moveGateOpen(speed1);
     } else if (gatePos < pos2) {
-      moveOpen(speed2);
+      moveGateOpen(speed2);
     } else if (gatePos < pos3) {
-      moveOpen(speed3);
+      moveGateOpen(speed3);
     } else if (gatePos < pos4) {
-      moveOpen(speed4);
+      moveGateOpen(speed4);
     } else if (gatePos < pos5) {
-      moveOpen(speed5);
+      moveGateOpen(speed5);
     } else if (gatePos < pos6) {
-      moveOpen(speed4);
+      moveGateOpen(speed4);
     } else if (gatePos < pos7) {
-      moveOpen(speed3);
+      moveGateOpen(speed3);
     } else if (gatePos < pos8) {
-      moveOpen(speed2);
+      moveGateOpen(speed2);
     } else if (gatePos < pos9) {
-      moveOpen(speed1);
+      moveGateOpen(speed1);
       // Debug: Let's print the position now.
       if (oneTime) {
         oneTime = false; 
@@ -379,14 +390,17 @@ void closeTheGateIncrementally() {
       
       // %%%%%%%%%  AFTER INITIAL TESTING %%%%%%%%%%%% */
     
-    //Put this in the last moveOpen function
-    isGateMoving = checkGateMotion(true);
+    //Put this in the last moveGateOpen function
+    isGateMoving = checkActuatorMotion(analogGatePositionPin);
  
   } // While Loop
   Serial.println("Past While Loop");
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
+  
+  // After the gate is done closing. Lock it.
+  lockGate();
   
 }
 
@@ -402,6 +416,9 @@ void openTheGateIncrementally() {
   isGateMoving = true;
   int failSafeCounter = 0;
   int oneTime = true;
+  
+  // Unlock the gate before moving it.
+  unlockGate();
   
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
@@ -433,23 +450,23 @@ void openTheGateIncrementally() {
     // Now we start actually moving the gate YEAH :)
     
     if(gatePos > pos9) {
-      moveClosed(speed1);
+      moveGateClosed(speed1);
     } else if (gatePos > pos8) {
-      moveClosed(speed2);
+      moveGateClosed(speed2);
     } else if (gatePos > pos7) {
-      moveClosed(speed3);
+      moveGateClosed(speed3);
     } else if (gatePos > pos6) {
-      moveClosed(speed4);
+      moveGateClosed(speed4);
     } else if (gatePos > pos5) {
-      moveClosed(speed5);
+      moveGateClosed(speed5);
     } else if (gatePos > pos4) {
-      moveClosed(speed4);
+      moveGateClosed(speed4);
     } else if (gatePos > pos3) {
-      moveClosed(speed3);
+      moveGateClosed(speed3);
     } else if (gatePos > pos2) {
-      moveClosed(speed2);
+      moveGateClosed(speed2);
     } else if (gatePos > pos1) {
-      moveClosed(speed1);
+      moveGateClosed(speed1);
       // Debug: Let's print the position now.
       if (oneTime) {
         oneTime = false; 
@@ -458,14 +475,16 @@ void openTheGateIncrementally() {
       Serial.print(gatePos);
     }
       
-    //Put this in the last moveOpen function
-    isGateMoving = checkGateMotion(true);
+    //Put this in the last moveGateOpen function
+    isGateMoving = checkActuatorMotion(analogGatePositionPin);
  
   } // While Loop
   Serial.println("Past While Loop");
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
+  
+  // 
   
 }
 
@@ -479,13 +498,14 @@ void openTheGateIncrementally() {
   Params: -> moving (boolean) is gate currently moving
   Returns:-> isSamePos (boolean) has gate moved over last 50 ms.
 */
-int checkGateMotion(int moving) {
+int checkActuatorMotion(int actuatorPositionPin) {
   
     int isSamePos = true;
+    int isStillMoving = true;
     int curPos, lastPos;
      
      // Let's get the position from before the first time delay.
-     lastPos = analogRead(analogGatePositionPin);
+     lastPos = analogRead(actuatorPositionPin);
     
     for(int i = 0; i < 5; i++) {
       
@@ -504,15 +524,23 @@ int checkGateMotion(int moving) {
         if(lastPos == curPos) {
           lastPos = curPos; 
           isSamePos = true;
+          isStillMoving = false;
+          Serial.print("CHECKING ACTUATOR MOTION: ATTEMPT ");
+          Serial.print(i);
+          Serial.println(" -> STOPPED");
         } else {
           isSamePos = false;
+          isStillMoving = true;
+          Serial.print("CHECKING ACTUATOR MOTION: ATTEMPT ");
+          Serial.print(i);
+          Serial.println(" -> MOVING");
           // NOTE: We could probably use a break here instead.
           // It would be more performant.
         } 
       }
     }
     
-    return isSamePos;
+    return isStillMoving;
 }
 
 // Turns the LED on or off
@@ -526,10 +554,10 @@ void switchLED(int onState) {
 }
 
 
-// Move the gate toward the open position.
+// Move the gate toward the closed position.
 // Params:
 // rate: - speed to move the gate
-void moveOpen(int rate) {
+void moveGateClosed(int rate) {
   
    // Set the moving state variable
    isGateMoving = true;
@@ -540,10 +568,10 @@ void moveOpen(int rate) {
    analogWrite(gateSpeed, rate);
 }
 
-// Move the gate toward the closed position.
+// Move the gate toward the open position.
 // Params:
 // rate: - speed to move the gate
-void moveClosed(int rate) {
+void moveGateOpen(int rate) {
   
   // Set moving state variable
   isGateMoving = true;
@@ -571,3 +599,100 @@ void stopGate() {
 }
 
 
+/*
+  Move the lock actuator piston to the extended
+  position.
+*/
+void extendLockActuator() {
+  
+  digitalWrite(lockDirection, HIGH);
+  digitalWrite(lockBrake, LOW);
+  analogWrite(lockSpeed, speed5);
+}
+
+/*
+  Move the lock actuator piston to the retracted
+  position
+*/
+void retractLockActuator() {
+    
+  digitalWrite(lockDirection, LOW);
+  digitalWrite(lockBrake, LOW);
+  analogWrite(lockSpeed, speed5);
+  
+}
+
+/*
+  Stop lock actuator
+*/
+void stopLock() {
+  
+  digitalWrite(lockDirection, LOW);
+  digitalWrite(lockBrake, HIGH);
+  analogWrite(lockSpeed, 0); 
+  
+}
+
+
+/*
+  Lock the gate.
+*/
+void lockGate() {
+  
+    int curPos = 0;
+   
+   // If we just started, run extend
+   // function once.
+   if(!isLockMoving) {
+     isLockMoving = true;
+     Serial.println("Extending the lock...");
+     extendLockActuator(); 
+   } 
+   
+   // Get the lock position. If we are
+   // close to the end start checking
+   // the position to see if the actuator
+   // is still moving.
+   while(isLockMoving) {
+     curPos = analogRead(analogLockPositionPin);
+     if (curPos > pos11) {
+       Serial.println("Almost fully extended");
+       isLockMoving = checkActuatorMotion(analogLockPositionPin);
+     } 
+   }
+   
+   stopLock();
+   Serial.println("The Lock has stopped");
+}
+
+/*
+  Unlock the gate.
+*/
+void unlockGate() {
+  
+  int curPos = 0;
+ 
+  // If we just started, run retract
+  // function once.
+  if(!isLockMoving) {
+    isLockMoving = true;
+    Serial.println("Retracting the lock...");
+    retractLockActuator();
+  }
+  
+  // Get the lock position. If we are
+  // close to the end of the start checking
+  // the position to see if the actuator
+  // is still moving.
+  while(isLockMoving) {
+    curPos = analogRead(analogLockPositionPin);
+    if (curPos < pos2) {
+      Serial.println("Almost fully retracted");
+      isLockMoving = checkActuatorMotion(analogLockPositionPin); 
+    }
+  }
+  
+  stopLock();
+  Serial.println("The Lock is stopped");
+     
+}
