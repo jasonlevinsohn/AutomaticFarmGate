@@ -27,10 +27,10 @@ const String backButton = "57436699";
 const String resetButton = "57432dd2";
 
 // Actuator Speeds
-const int speed1 = 50,
-          speed2 = 100,
-          speed3 = 150,
-          speed4 = 200,
+const int speed1 = 100,
+          speed2 = 140,
+          speed3 = 180,
+          speed4 = 240,
           speed5 = 255;
     
 // Actuator Positions (eg. 1023 / 6 = 171)
@@ -426,25 +426,36 @@ void closeTheGateIncrementally() {
     }
     
     gatePos = analogRead(analogGatePositionPin);
+    Serial.print("Closing The gate: ");
+    Serial.println(gatePos);
     
-    if(gatePos < pos1) {
-      moveGateOpen(speed1);
+    if(gatePos < pos2) {
+      Serial.println("HELLA MOVING----");
+      moveGateClosed(speed1);
     } else if (gatePos < pos2) {
-      moveGateOpen(speed2);
+      Serial.println("HELLA MOVING---------");
+      moveGateClosed(speed2);
     } else if (gatePos < pos3) {
-      moveGateOpen(speed3);
+      Serial.println("HELLA MOVING---------------");
+      moveGateClosed(speed3);
     } else if (gatePos < pos4) {
-      moveGateOpen(speed4);
+      Serial.println("HELLA MOVING-----------------------");
+      moveGateClosed(speed4);
     } else if (gatePos < pos5) {
-      moveGateOpen(speed5);
+      Serial.println("HELLA MOVING-------------------------------");
+      moveGateClosed(speed5);
     } else if (gatePos < pos6) {
-      moveGateOpen(speed4);
+      Serial.println("HELLA MOVING-----------------------");
+      moveGateClosed(speed4);
     } else if (gatePos < pos7) {
-      moveGateOpen(speed3);
+      Serial.println("HELLA MOVING---------------");
+      moveGateClosed(speed3);
     } else if (gatePos < pos8) {
-      moveGateOpen(speed2);
+      Serial.println("HELLA MOVING---------");
+      moveGateClosed(speed2);
     } else if (gatePos < pos9) {
-      moveGateOpen(speed1);
+      Serial.println("HELLA MOVING----");
+      moveGateClosed(speed1);
       // Debug: Let's print the position now.
       if (oneTime) {
         oneTime = false; 
@@ -524,23 +535,27 @@ void openTheGateIncrementally() {
     // Now we start actually moving the gate YEAH :)
     
     if(gatePos > pos9) {
-      moveGateClosed(speed1);
+      Serial.print("Are we getting here: ");
+      Serial.print(gatePos);
+      Serial.print(" "); 
+      Serial.println(pos9);
+      moveGateOpen(speed1);
     } else if (gatePos > pos8) {
-      moveGateClosed(speed2);
+      moveGateOpen(speed2);
     } else if (gatePos > pos7) {
-      moveGateClosed(speed3);
+      moveGateOpen(speed3);
     } else if (gatePos > pos6) {
-      moveGateClosed(speed4);
+      moveGateOpen(speed4);
     } else if (gatePos > pos5) {
-      moveGateClosed(speed5);
+      moveGateOpen(speed5);
     } else if (gatePos > pos4) {
-      moveGateClosed(speed4);
+      moveGateOpen(speed4);
     } else if (gatePos > pos3) {
-      moveGateClosed(speed3);
+      moveGateOpen(speed3);
     } else if (gatePos > pos2) {
-      moveGateClosed(speed2);
+      moveGateOpen(speed2);
     } else if (gatePos > pos1) {
-      moveGateClosed(speed1);
+      moveGateOpen(speed1);
       // Debug: Let's print the position now.
       if (oneTime) {
         oneTime = false; 
@@ -641,7 +656,7 @@ void moveGateClosed(int rate) {
    // Move the Actuator  
    digitalWrite(gateDirection, HIGH);
    digitalWrite(gateBrake, LOW);
-   analogWrite(gateSpeed, rate);
+   analogWrite(gateSpeed, 255);
 }
 
 // Move the gate toward the open position.
@@ -651,11 +666,15 @@ void moveGateOpen(int rate) {
   
   // Set moving state variable
   isGateMoving = true;
+  Serial.println("are we gonna come in here");
+  Serial.print("What is the rate: ");
+  Serial.println(rate);
+  
   
   // Move the Actuator
   digitalWrite(gateDirection, LOW);
   digitalWrite(gateBrake, LOW); 
-  analogWrite(gateSpeed, rate);
+  analogWrite(gateSpeed, 255);
 }
 
 // Stop the gate
