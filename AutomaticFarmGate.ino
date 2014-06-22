@@ -21,6 +21,9 @@
     
 */
 
+// Gate Test Booleans
+int GATE_ARM_TEST = true;
+
 // IR Code Assignments
 const String homeButton = "5743c03f";
 const String backButton = "57436699";
@@ -48,7 +51,7 @@ const int pos1  = 85,
           
 
 // The map function is also a good alternative to this, but
-// we've already done the lather so..... what evs :)
+// we've already done the later so..... what evs :)
 // ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
    
    
@@ -163,14 +166,24 @@ void resetActuators() {
   
   Serial.println("Reseting Lock...");
   
-
   while(isLockMoving || isGateMoving) {
     
     while(isLockMoving) {
-
-      digitalWrite(lockDirection, HIGH);
-      digitalWrite(lockBrake, LOW);
-      analogWrite(lockSpeed, speed5);
+      
+      if(GATE_ARM_TEST) {
+        delay(500);
+        Serial.println("\n ----- Gate Arm Test ----- ");
+        Serial.println("\n ----- Setting Lock Open ----- ");
+        delay(1000);
+        digitalWrite(lockDirection, LOW);
+        digitalWrite(lockBrake, LOW);
+        analogWrite(lockSpeed, speed5);        
+        
+      } else {
+        digitalWrite(lockDirection, HIGH);
+        digitalWrite(lockBrake, LOW);
+        analogWrite(lockSpeed, speed5);
+      }
       
       
       curPos = analogRead(analogLockPositionPin);
@@ -196,14 +209,8 @@ void resetActuators() {
       isGateMoving = checkActuatorMotion(analogGatePositionPin);
     }
     
-    Serial.println("\n\nGate Reset\n\n");
-    
-    
+    Serial.println("\n\nGate Reset\n\n"); 
   }
-  
-  
-  
-  
 }
 
 // Captures and decodes Remote Control Signal
@@ -247,61 +254,10 @@ String formatDecodeResult(const decode_results* results) {
   return value;
 }
 
-// Sets and governs the global actuator moving 
-// variables which hold the moving state.
-// TODO:
-  // This function should also check the position of
-  // the actuators and set the moving booleans
-  // accordingly.
-//void governActuatorMovingVars() {
-//  
-//  isGateButtonPressed = digitalRead(gateStartStopPin);
-//  isLockButtonPressed = digitalRead(lockStartStopPin);
-//  
-//  
-//  // Change the Gate Moving Boolean when the button
-//  // is pressed.
-//  if(isGateButtonPressed) {
-//    gatePressed = true;
-//    Serial.print("Gate Button Pressed: ");
-//    Serial.println(isGateButtonPressed);
-//    
-//    // If the gate is stopped, let's move.
-//    // If the gate is moving, let's stop. 
-//    if(isGateMoving) {
-//      isGateMoving = false;
-//    } else {
-//      isGateMoving = true;
-//    }
-//    
-//    
-//    // Show Gate Position
-//    Serial.print("Gate Position: ");
-//    gatePos = analogRead(analogGatePositionPin);
-//    Serial.println(gatePos);
-//
-//  }
-//  
-//  // Change the Lock Moving Boolean when the button
-//  // is pressed.
-//  if(isLockButtonPressed) {
-//    lockPressed = true;
-//    //Serial.println("Lock Button Pressed");
-//    
-//    // If the lock is stopped, let's move.
-//    // If the lock is moving, let's stop
-//    if(isLockMoving) {
-//      isLockMoving = false;
-//    } else {
-//      isLockMoving = true; 
-//    }
-//
-//  }
-//  
-//}
 
 // Stops the lock from extending past the
 // given pos.
+/*
 void stopGateAt(int pos) {
 
   gatePos = analogRead(analogGatePositionPin);
@@ -334,15 +290,9 @@ void stopGateAt(int pos) {
   
   
   
-  if(gatePos > pos) {
-    
-   /* Serial.println("----------------");
-    Serial.println("Motion Interuppted");
-    Serial.print("Gate Position: ");
-    Serial.println(gatePos);
-    Serial.println("----------------");   */
-  }
+ 
 }
+*/
 
 void changeGateState(String signal) {
   
@@ -481,7 +431,13 @@ void closeTheGateIncrementally() {
   switchLED(isGateMoving);
   
   // After the gate is done closing. Lock it.
-  lockGate();
+  if(GATE_ARM_TEST) {
+    Serial.println("\n ----- Gate Arm Test ----- \n");
+    Serial.println("----- Leaving Gate Unlocked ----- \n");
+  } else {
+    lockGate();  
+  }
+  
   
 }
 
@@ -499,7 +455,13 @@ void openTheGateIncrementally() {
   int oneTime = true;
   
   // Unlock the gate before moving it.
-  unlockGate();
+  if(GATE_ARM_TEST) {
+    Serial.println("\n ----- Gate Arm Test ----- \n");
+    Serial.println("----- No Action Required on Lock ----- \n");
+  } else {
+    unlockGate();  
+  }
+
   
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
