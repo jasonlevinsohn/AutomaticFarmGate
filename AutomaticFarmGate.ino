@@ -29,6 +29,8 @@ const String homeButton = "5743c03f";
 const String backButton = "57436699";
 const String resetButton = "57432dd2";
 
+
+
 // Actuator Speeds
 const int speed1 = 100,
           speed2 = 140,
@@ -141,6 +143,9 @@ void loop() {
   // Change the Current State of the Gate.
   signal = getIrRemoteSignal();
   if(signalReceived) {
+    
+    checkSignalCode(signal);
+    
     if(signal == resetButton) {
       signalReceived = false;
       isLockMoving = true;
@@ -299,10 +304,7 @@ void changeGateState(String signal) {
   
   // If the Home Button is pressed, and the 
   // gate is moving, stop the gate.
-  Serial.println("Button Pressed...");
-  Serial.println(signal);
-  Serial.println(homeButton);
-  Serial.println(backButton);
+  Serial.print("Is the gate Moving: ");
   Serial.println(isGateMoving);
   if(signal == homeButton && isGateMoving) {
     stopGate();
@@ -795,3 +797,20 @@ void unlockGate() {
   Serial.println("The Lock is stopped");
      
 }
+
+void checkSignalCode(String s) {
+ if (s == homeButton || s == backButton || s == resetButton) {
+  Serial.println("IR CODE: MATCH");
+ } else {
+  Serial.println("IR CODE: MATCH NOT FOUND");
+  Serial.print("Reset Button is: ");
+  Serial.println(resetButton);
+  Serial.print("Home Button is: ");
+  Serial.println(homeButton);
+  Serial.print("Back Button is: ");
+  Serial.println(backButton);
+  Serial.print("Code Entered: ");
+  Serial.println(s);
+ } 
+}
+
