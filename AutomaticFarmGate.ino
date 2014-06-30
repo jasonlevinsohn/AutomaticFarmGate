@@ -138,6 +138,7 @@ void loop() {
   // Change the Current State of the Gate.
   signal = getIrRemoteSignal();
   if(signalReceived) {
+    
     if(signal == resetButton) {
       signalReceived = false;
       isLockMoving = true;
@@ -346,24 +347,11 @@ void stopGateAt(int pos) {
 
 void changeGateState(String signal) {
   
-  
-  // If the Home Button is pressed, and the 
-  // gate is moving, stop the gate.
-  Serial.println("Button Pressed...");
-  Serial.println(signal);
-  Serial.println(homeButton);
-  Serial.println(backButton);
-  Serial.println(isGateMoving);
-  if(signal == homeButton && isGateMoving) {
-    stopGate();
-    Serial.println("Stopping the gate now");
-  }
-  
   // If the Home Button is pressed, and the 
   // gate is stopped, get the current position
   // and start moving at the cooresponding speed
   // in the opening direction.
-  else if(signal == homeButton && !isGateMoving) {
+  if(signal == homeButton && !isGateMoving) {
     
     Serial.println("Opening the gate now");
     openTheGateIncrementally();  // &&&&& BUILD THIS FUNCTION &&&&&
@@ -406,8 +394,8 @@ void closeTheGateIncrementally() {
   // Check to see if the position is the same
   // over 5 loops. This will mean the gate is
   // not moving anymore.  Release from the loop.
-  while(isGateMoving) {
-        
+  while(isGateMoving) {  
+   
     // While loops are dangerous.  We need a fail safe
     // to break from the loop.
     failSafeCounter++;
@@ -510,6 +498,19 @@ void openTheGateIncrementally() {
   Serial.println("Alright let's open this gate...");
   while(isGateMoving) {
     Serial.println("Uhh, yes sir opening");
+        
+    // Check the serial while the gate is moving to stop it,
+    // if necessary.  
+    signal = getIrRemoteSignal();
+    if(signalReceived) {
+       if(signal == homeButton) {
+          if(isGateMoving) {
+             stopGate();
+             Serial.println("Stopping the gate now");
+         }
+      }
+   }   
+        
         
     // While loops are dangerous.  We need a fail safe
     // to break from the loop.
