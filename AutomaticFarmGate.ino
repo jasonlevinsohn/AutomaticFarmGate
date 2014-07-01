@@ -31,6 +31,8 @@ const String resetButton = "57432dd2";
 // will call the stop function before it gets a chance to move at all.
 const String playStopButton = "";
 
+int GATE_ARM_TEST = true;
+
 // Actuator Speeds
 const int speed1 = 100,
           speed2 = 140,
@@ -126,14 +128,14 @@ void setup() {
   
   //%%%%%%%%%  IS THERE A CLEAR FUNCTION %%%%%%%%%%
   //Serial.clear();
-  Serial.println("Gate Actuator Initialized\n\n");
+  Serial.println("Gate Actuator Initialized.");
   
   pinMode(lockDirection, OUTPUT);
   pinMode(lockBrake, OUTPUT);
   
-  Serial.println("Lock Actuator Initialized\n\n");
+  Serial.println("Lock Actuator Initialized.");
   delay(400);
-  Serial.println("Remote Gate Activated.");  
+  Serial.println("Remote Gate Activated.\n\n");  
 }
 
 
@@ -365,10 +367,11 @@ void changeGateState(String signal) {
   
   // If the Back Button is pressed, and the
   // gate is moving, stop the gate.
-  else if(signal == backButton && isGateMoving) {
-   stopGate(); 
-   Serial.println("Stopping the gate now again");
-  }
+  // The process will never get to this code.  Commenting out.
+  //else if(signal == backButton && isGateMoving) {
+   //stopGate(); 
+   //Serial.println("Stopping the gate now again");
+  //}
   
   // If the Back Button is pressed, and the
   // gate is stopped, get the current position
@@ -474,7 +477,10 @@ void closeTheGateIncrementally() {
   switchLED(isGateMoving);
   
   // After the gate is done closing. Lock it.
-  lockGate();
+  if(!GATE_ARM_TEST) {
+    lockGate();  
+  }
+  
   
 }
 
@@ -492,7 +498,10 @@ void openTheGateIncrementally() {
   int oneTime = true;
   
   // Unlock the gate before moving it.
-  unlockGate();
+  if(!GATE_ARM_TEST) {
+    unlockGate();
+  }
+  
   
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
