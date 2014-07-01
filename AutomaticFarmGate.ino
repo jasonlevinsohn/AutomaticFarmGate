@@ -26,6 +26,11 @@ const String homeButton = "5743c03f";
 const String backButton = "57436699";
 const String resetButton = "57432dd2";
 
+// We may need a different button to stop the gate, while moving.
+// I'm afraid with out a debounce method in place, using the same code
+// will call the stop function before it gets a chance to move at all.
+const String playStopButton = "";
+
 // Actuator Speeds
 const int speed1 = 100,
           speed2 = 140,
