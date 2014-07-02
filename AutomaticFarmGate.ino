@@ -469,6 +469,18 @@ void closeTheGateIncrementally() {
     
     //Put this in the last moveGateOpen function
     isGateMoving = checkActuatorMotion(analogGatePositionPin);
+    
+    // Check the serial while the gate is moving to stop it,
+    // if necessary.  
+    signal = getIrRemoteSignal();
+    if(signalReceived) {
+       if(signal == backButton) {
+          if(isGateMoving) {
+             stopGate();
+             Serial.println("Stopping the gate now");
+          }
+        }
+     }   
  
   } // While Loop
   Serial.println("Past While Loop");
@@ -480,6 +492,8 @@ void closeTheGateIncrementally() {
   if(!GATE_ARM_TEST) {
     lockGate();  
   }
+  
+  
   
   
 }
@@ -513,17 +527,7 @@ void openTheGateIncrementally() {
   while(isGateMoving) {
     Serial.println("Uhh, yes sir opening");
         
-    // Check the serial while the gate is moving to stop it,
-    // if necessary.  
-    signal = getIrRemoteSignal();
-    if(signalReceived) {
-       if(signal == homeButton) {
-          if(isGateMoving) {
-             stopGate();
-             Serial.println("Stopping the gate now");
-         }
-      }
-   }   
+    
         
         
     // While loops are dangerous.  We need a fail safe
@@ -581,6 +585,18 @@ void openTheGateIncrementally() {
       
     //Put this in the last moveGateOpen function
     isGateMoving = checkActuatorMotion(analogGatePositionPin);
+    
+    // Check the serial while the gate is moving to stop it,
+    // if necessary.  
+    signal = getIrRemoteSignal();
+    if(signalReceived) {
+       if(signal == homeButton) {
+          if(isGateMoving) {
+             stopGate();
+             Serial.println("Stopping the gate now");
+          }
+        }
+     }   
  
   } // While Loop
   Serial.println("Past While Loop");
@@ -704,7 +720,7 @@ void stopGate() {
   
   // Stop the Actuator.
   digitalWrite(gateDirection, LOW);
-  digitalWrite(gateBrake, HIGH);
+  digitalWrite(gateBrake, LOW);
   analogWrite(gateSpeed, 0); 
 }
 
