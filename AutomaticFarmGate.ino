@@ -21,6 +21,9 @@
     
 */
 
+// Gate Test Booleans
+int GATE_ARM_TEST = true;
+
 // IR Code Assignments
 const String homeButton = "5743c03f";
 const String backButton = "57436699";
@@ -55,7 +58,7 @@ const int pos1  = 85,
 
 
 // The map function is also a good alternative to this, but
-// we've already done the lather so..... what evs :)
+// we've already done the later so..... what evs :)
 // ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
 
 
@@ -145,7 +148,9 @@ void loop() {
   // Change the Current State of the Gate.
   signal = getIrRemoteSignal();
   if(signalReceived) {
-
+    
+    /* checkSignalCode(signal); */
+    
     if(signal == resetButton) {
       signalReceived = false;
       isLockMoving = true;
@@ -166,15 +171,24 @@ void resetActuators() {
   
   Serial.println("Reseting Lock...");
 
-
   while(isLockMoving || isGateMoving) {
 
     while(isLockMoving) {
-
-      digitalWrite(lockDirection, HIGH);
-      digitalWrite(lockBrake, LOW);
-      analogWrite(lockSpeed, speed5);
-
+      
+      if(GATE_ARM_TEST) {
+        delay(500);
+        Serial.println("\n ----- Gate Arm Test ----- ");
+        Serial.println("\n ----- Setting Lock Open ----- ");
+        delay(1000);
+        digitalWrite(lockDirection, LOW);
+        digitalWrite(lockBrake, LOW);
+        analogWrite(lockSpeed, speed5);        
+        
+      } else {
+        digitalWrite(lockDirection, HIGH);
+        digitalWrite(lockBrake, LOW);
+        analogWrite(lockSpeed, speed5);
+      }
       
       curPos = analogRead(analogLockPositionPin);
       Serial.print(curPos);
@@ -374,13 +388,12 @@ void closeTheGateIncrementally() {
   switchLED(isGateMoving);
   
   // After the gate is done closing. Lock it.
-  if(!GATE_ARM_TEST) {
+  // Make sure the gate is fully closed before locking gate
+  Serial.println("WHAT IS CLOSING STATUS POSITION:");
+  Serial.println(gatePos);
+  if(!GATE_ARM_TEST && gatePos > 920) {
     lockGate();  
   }
-  
-  
-  
-  
 }
 
 /*
@@ -736,3 +749,20 @@ void unlockGate() {
   Serial.println("The Lock is stopped");
      
 }
+
+void checkSignalCode(String s) {
+ if (s == homeButton || s == backButton || s == resetButton) {
+  Serial.println("IR CODE: MATCH");
+ } else {
+  Serial.println("IR CODE: MATCH NOT FOUND");
+  Serial.print("Reset Button is: ");
+  Serial.println(resetButton);
+  Serial.print("Home Button is: ");
+  Serial.println(homeButton);
+  Serial.print("Back Button is: ");
+  Serial.println(backButton);
+  Serial.print("Code Entered: ");
+  Serial.println(s);
+ } 
+}
+
