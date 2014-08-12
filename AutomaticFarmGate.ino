@@ -31,7 +31,7 @@ const String resetButton = "57432dd2";
 // will call the stop function before it gets a chance to move at all.
 const String playStopButton = "";
 
-int GATE_ARM_TEST = true;
+int GATE_ARM_TEST = false;
 
 // Actuator Speeds
 const int speed1 = 100,
@@ -368,6 +368,7 @@ void closeTheGateIncrementally() {
  
   } // While Loop
   Serial.println("Past While Loop");
+  stopGate();
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
@@ -476,6 +477,7 @@ void openTheGateIncrementally() {
  
   } // While Loop
   Serial.println("Past While Loop");
+  stopGate();
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
