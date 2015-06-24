@@ -6,10 +6,10 @@
   Home Button is NEC: 5743c13e
   Back Button is NEC: 57436699
   Reset Button is NEC: 57432dd2
-  
+
   TODO:
   - Functions to extend / retract the lock upon opening and closing - DONE
-  - Higher Functions to call extend/retract lower function called lock/unlock Gate
+  - Higher Functions to call extend/retract lower function called lock/unlock Gate - DONE
   - Function to position gate at exact position using Serial input
   
   NOTE: We might want the ability to control gate
@@ -21,7 +21,8 @@
     
 */
 
-// Gate Test Booleans
+// Gate Test Booleans - Leaves the lock open
+// for testing the arm.
 int GATE_ARM_TEST = true;
 
 // IR Code Assignments
@@ -29,7 +30,10 @@ const String homeButton = "5743c03f";
 const String backButton = "57436699";
 const String resetButton = "57432dd2";
 
-
+// We may need a different button to stop the gate, while moving.
+// I'm afraid with out a debounce method in place, using the same code
+// will call the stop function before it gets a chance to move at all.
+const String playStopButton = "";
 
 // Actuator Speeds
 const int speed1 = 100,
@@ -37,7 +41,7 @@ const int speed1 = 100,
           speed3 = 180,
           speed4 = 240,
           speed5 = 255;
-    
+
 // Actuator Positions (eg. 1023 / 6 = 171)
 const int pos1  = 85,
           pos2  = 170,
@@ -50,13 +54,13 @@ const int pos1  = 85,
           pos9  = 765,
           pos10 = 850,
           pos11 = 935;
-          
+
 
 // The map function is also a good alternative to this, but
 // we've already done the later so..... what evs :)
 // ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
-   
-   
+
+
 //LED Pins
 const int ledPin = 2;
 
@@ -78,7 +82,7 @@ const int gateCurrent = 0,
           lockDirection = 13;
 
 
-// Pin to get the current position of 
+// Pin to get the current position of
 // the actuators.  Don't use 0.
 // It's used by the motor controller
 // already to output the amperage.
@@ -108,13 +112,13 @@ int gateLocked = false;
 
 
 void setup() {
-  
+
   // Initiate Serial Port
   Serial.begin(9600);
-  
+
   // Set LED Pin
   pinMode(ledPin, OUTPUT);
-  
+
   // IR Remote Setup
   irrecv.enableIRIn();  // Start the receiver
   
@@ -123,28 +127,28 @@ void setup() {
   pinMode(gateDirection, OUTPUT);
   pinMode(gateBrake, OUTPUT);
  
-  
+
   //%%%%%%%%%  IS THERE A CLEAR FUNCTION %%%%%%%%%%
   //Serial.clear();
-  Serial.println("Gate Actuator Initialized\n\n");
-  
+  Serial.println("Gate Actuator Initialized.");
+
   pinMode(lockDirection, OUTPUT);
   pinMode(lockBrake, OUTPUT);
-  
-  Serial.println("Lock Actuator Initialized\n\n");
+ 
+  Serial.println("Lock Actuator Initialized.");
   delay(400);
-  Serial.println("Remote Gate Activated.");  
+  Serial.println("Remote Gate Activated.\n\n");
 }
 
 
 void loop() {
-  
+ 
   // Get the signal if there is one.
   // Change the Current State of the Gate.
   signal = getIrRemoteSignal();
   if(signalReceived) {
     
-    checkSignalCode(signal);
+    /* checkSignalCode(signal); */
     
     if(signal == resetButton) {
       signalReceived = false;
@@ -156,23 +160,18 @@ void loop() {
       changeGateState(signal); // &&&& BUILD THIS FUNCTION &&&&
     }
   }
-  //governActuatorMovingVars();
-  
-  //stopGateAt(600);  
-  //gatePos = analogRead(analogGatePositionPin);
-  //Serial.println(gatePos);
-  
+
 }
 
 void resetActuators() {
-  
-  
+ 
+
   int curPos = 0;
   
   Serial.println("Reseting Lock...");
-  
+
   while(isLockMoving || isGateMoving) {
-    
+
     while(isLockMoving) {
       
       if(GATE_ARM_TEST) {
@@ -190,7 +189,6 @@ void resetActuators() {
         analogWrite(lockSpeed, speed5);
       }
       
-      
       curPos = analogRead(analogLockPositionPin);
       Serial.print(curPos);
       Serial.println(" Lock Position");
@@ -199,6 +197,7 @@ void resetActuators() {
 
     }    
     Serial.println("\n\nLock Reset\n\n");
+    analogWrite(lockSpeed, 0);
     
     delay(2000);
     
@@ -213,9 +212,13 @@ void resetActuators() {
       Serial.println(" Gate Position");
       isGateMoving = checkActuatorMotion(analogGatePositionPin);
     }
-    
-    Serial.println("\n\nGate Reset\n\n"); 
+
+    Serial.println("\n\nGate Reset\n\n");
+    analogWrite(gateSpeed, 0);
+
+
   }
+
 }
 
 // Captures and decodes Remote Control Signal
@@ -224,7 +227,7 @@ String getIrRemoteSignal() {
   if (irrecv.decode(&results)) {
      Serial.println("Remote Control Signal: ");
      signal = formatDecodeResult(&results);
-     irrecv.resume(); // Receive the next value 
+     irrecv.resume(); // Receive the next value
      signalReceived = true;
   }
   return signal;
@@ -236,18 +239,18 @@ String formatDecodeResult(const decode_results* results) {
   String value;
   const int protocol = results->decode_type;
   Serial.print("Protocol: ");
-  
+
   if (protocol == UNKNOWN) {
     Serial.println("not recognized");
   } else {
     if (protocol == NEC) {
-      Serial.println("NEC"); 
+      Serial.println("NEC");
     } else if (protocol == RC5) {
-      Serial.println("RC5"); 
+      Serial.println("RC5");
     } else if (protocol == RC6) {
-      Serial.println("RC6"); 
+      Serial.println("RC6");
     } else if (protocol == SONY) {
-      Serial.println("SONY"); 
+      Serial.println("SONY");
     }
     Serial.print("Value: ");
     Serial.print(results->value, HEX);
@@ -255,87 +258,29 @@ String formatDecodeResult(const decode_results* results) {
     Serial.print(results->bits, DEC);
     Serial.println(" bits)");
     value = String(results->value, HEX);
+    Serial.print("What is value: ");
+    Serial.println(value);
   }
   return value;
 }
 
 
-// Stops the lock from extending past the
-// given pos.
-/*
-void stopGateAt(int pos) {
-
-  gatePos = analogRead(analogGatePositionPin);
-  
-  //Serial.print("Gate Position: ");
-  
-  if(isGateMoving) {
-    delay(100);
-    
-    // Only look at the reading if it is below 100. 
-    // This might be due to voltage drop because of
-    // the resistance of me using 3 feet of wire between
-    // the actuator and controller.
-    //if(gatePos < 200) {
-      if(gatePos < 200) {
-       analogWrite(gateSpeed, speed5);
-      }
-      else if (gatePos > 750) {
-       analogWrite(gateSpeed, speed5);
-      } 
-      else {
-        analogWrite(gateSpeed, speed5);
-      }
-    //}
-   
-    Serial.println(gatePos);
-    
-   
-  }
-  
-  
-  
- 
-}
-*/
-
 void changeGateState(String signal) {
-  
-  
-  // If the Home Button is pressed, and the 
-  // gate is moving, stop the gate.
-  Serial.print("Is the gate Moving: ");
-  Serial.println(isGateMoving);
-  if(signal == homeButton && isGateMoving) {
-    stopGate();
-    Serial.println("Stopping the gate now");
-  }
-  
-  // If the Home Button is pressed, and the 
+
+  // If the Home Button is pressed, and the
   // gate is stopped, get the current position
   // and start moving at the cooresponding speed
   // in the opening direction.
-  else if(signal == homeButton && !isGateMoving) {
-    
-    Serial.println("Opening the gate now");
-    openTheGateIncrementally();  // &&&&& BUILD THIS FUNCTION &&&&&
-    Serial.println("We opened the gate");
+  if(signal == homeButton && !isGateMoving) {
+    openTheGateIncrementally();
   }
-  
-  // If the Back Button is pressed, and the
-  // gate is moving, stop the gate.
-  else if(signal == backButton && isGateMoving) {
-   stopGate(); 
-   Serial.println("Stopping the gate now again");
-  }
-  
+
   // If the Back Button is pressed, and the
   // gate is stopped, get the current position
   // and start moving at the cooresponding speed
   // in the closing direction
   else if(signal == backButton && !isGateMoving) {
-    closeTheGateIncrementally(); // &&&&& BUILD THIS FUNCTION &&&&& 
-    Serial.println("Closing the gate now bitches");
+    closeTheGateIncrementally();
   }
 }
 
@@ -343,15 +288,15 @@ void changeGateState(String signal) {
   Closes the gate starting out slowly and gradually
   getting to full speed in the middle of the pistons
   reach.  After the center point in gradually slows
-  down until it reaches the position set to align 
+  down until it reaches the position set to align
   with the lock.
 */
 void closeTheGateIncrementally() {
-  
+
   isGateMoving = true;
   int failSafeCounter = 0;
   int oneTime = true;
-  
+
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
 
@@ -359,17 +304,17 @@ void closeTheGateIncrementally() {
   // over 5 loops. This will mean the gate is
   // not moving anymore.  Release from the loop.
   while(isGateMoving) {
-        
+
     // While loops are dangerous.  We need a fail safe
     // to break from the loop.
     failSafeCounter++;
-    
+
     if(failSafeCounter == 3000) {
       Serial.println("Fail Safe hit 3000");
     }
-    
+
     if(failSafeCounter == 7000) {
-      Serial.println("Fail Safe hit 7000"); 
+      Serial.println("Fail Safe hit 7000");
     }
     
     if(failSafeCounter > 10000) {
@@ -378,8 +323,6 @@ void closeTheGateIncrementally() {
     }
     
     gatePos = analogRead(analogGatePositionPin);
-    Serial.print("Closing The gate: ");
-    Serial.println(gatePos);
     
     if(gatePos < pos2) {
       Serial.println("HELLA MOVING----");
@@ -425,22 +368,33 @@ void closeTheGateIncrementally() {
     
     //Put this in the last moveGateOpen function
     isGateMoving = checkActuatorMotion(analogGatePositionPin);
+    
+    // Check the serial while the gate is moving to stop it,
+    // if necessary.  
+    signal = getIrRemoteSignal();
+    if(signalReceived) {
+       if(signal == backButton) {
+          if(isGateMoving) {
+             stopGate();
+             Serial.println("Stopping the gate now");
+          }
+        }
+     }   
  
   } // While Loop
   Serial.println("Past While Loop");
+  stopGate();
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
   
   // After the gate is done closing. Lock it.
-  if(GATE_ARM_TEST) {
-    Serial.println("\n ----- Gate Arm Test ----- \n");
-    Serial.println("----- Leaving Gate Unlocked ----- \n");
-  } else {
+  // Make sure the gate is fully closed before locking gate
+  Serial.println("WHAT IS CLOSING STATUS POSITION:");
+  Serial.println(gatePos);
+  if(!GATE_ARM_TEST && gatePos > 920) {
     lockGate();  
   }
-  
-  
 }
 
 /*
@@ -457,13 +411,10 @@ void openTheGateIncrementally() {
   int oneTime = true;
   
   // Unlock the gate before moving it.
-  if(GATE_ARM_TEST) {
-    Serial.println("\n ----- Gate Arm Test ----- \n");
-    Serial.println("----- No Action Required on Lock ----- \n");
-  } else {
-    unlockGate();  
+  if(!GATE_ARM_TEST) {
+    unlockGate();
   }
-
+  
   
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
@@ -473,8 +424,7 @@ void openTheGateIncrementally() {
   // not moving anymore.  Release from the loop.
   Serial.println("Alright let's open this gate...");
   while(isGateMoving) {
-    Serial.println("Uhh, yes sir opening");
-        
+
     // While loops are dangerous.  We need a fail safe
     // to break from the loop.
     failSafeCounter++;
@@ -499,10 +449,6 @@ void openTheGateIncrementally() {
     // Now we start actually moving the gate YEAH :)
     
     if(gatePos > pos9) {
-      Serial.print("Are we getting here: ");
-      Serial.print(gatePos);
-      Serial.print(" "); 
-      Serial.println(pos9);
       moveGateOpen(speed1);
     } else if (gatePos > pos8) {
       moveGateOpen(speed2);
@@ -530,9 +476,22 @@ void openTheGateIncrementally() {
       
     //Put this in the last moveGateOpen function
     isGateMoving = checkActuatorMotion(analogGatePositionPin);
+    
+    // Check the serial while the gate is moving to stop it,
+    // if necessary.  
+    signal = getIrRemoteSignal();
+    if(signalReceived) {
+       if(signal == homeButton) {
+          if(isGateMoving) {
+             stopGate();
+             Serial.println("Stopping the gate now");
+          }
+        }
+     }   
  
   } // While Loop
   Serial.println("Past While Loop");
+  stopGate();
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
@@ -561,8 +520,6 @@ int checkActuatorMotion(int actuatorPositionPin) {
      lastPos = analogRead(actuatorPositionPin);
     
     for(int i = 0; i < 5; i++) {
-   // Serial.println("what is i: ");
-   // Serial.println(i);
       // We check for isSamePos here because it
       // is true when counter is 0.  If at anytime
       // the gatePos does not equal the previous one
@@ -630,10 +587,6 @@ void moveGateOpen(int rate) {
   
   // Set moving state variable
   isGateMoving = true;
-  Serial.println("are we gonna come in here");
-  Serial.print("What is the rate: ");
-  Serial.println(rate);
-  
   
   // Move the Actuator
   digitalWrite(gateDirection, LOW);
@@ -653,7 +606,7 @@ void stopGate() {
   
   // Stop the Actuator.
   digitalWrite(gateDirection, LOW);
-  digitalWrite(gateBrake, HIGH);
+  digitalWrite(gateBrake, LOW);
   analogWrite(gateSpeed, 0); 
 }
 
