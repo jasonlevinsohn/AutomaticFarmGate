@@ -21,7 +21,8 @@
     
 */
 
-// Gate Test Booleans
+// Gate Test Booleans - Leaves the lock open
+// for testing the arm.
 int GATE_ARM_TEST = true;
 
 // IR Code Assignments
@@ -33,8 +34,6 @@ const String resetButton = "57432dd2";
 // I'm afraid with out a debounce method in place, using the same code
 // will call the stop function before it gets a chance to move at all.
 const String playStopButton = "";
-
-int GATE_ARM_TEST = false;
 
 // Actuator Speeds
 const int speed1 = 100,
@@ -259,6 +258,8 @@ String formatDecodeResult(const decode_results* results) {
     Serial.print(results->bits, DEC);
     Serial.println(" bits)");
     value = String(results->value, HEX);
+    Serial.print("What is value: ");
+    Serial.println(value);
   }
   return value;
 }
