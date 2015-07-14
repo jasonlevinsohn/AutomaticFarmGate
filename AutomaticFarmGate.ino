@@ -1,4 +1,6 @@
-#include <IRremote.h>
+//#include <IRremote.h>
+#include <BMSerial.h>
+#include <RoboClaw.h>
 
 /*
   Remote Farm Gate
@@ -25,7 +27,7 @@
 // for testing the arm.
 int GATE_ARM_TEST = true;
 
-// IR Code Assignments
+// Radio Receiver Code Assignments
 const String homeButton = "5743c03f";
 const String backButton = "57436699";
 const String resetButton = "57432dd2";
@@ -61,15 +63,22 @@ const int pos1  = 85,
 // ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
 
 
-//LED Pins
+// LED Pins
 const int ledPin = 2;
 
+// Button Pins
+const int button1Pin = 6;
+
+// Radio Receiver Pins
+const int radioD1 = 9;
+const int radioD2 = 10;
+
 //IRRemote Pin & Setup
-const int RECV_PIN = 6;
-IRrecv irrecv(RECV_PIN);
-decode_results results;
-int signalReceived = false;
-String signal;
+//const int RECV_PIN = 6;
+//IRrecv irrecv(RECV_PIN);
+//decode_results results;
+//int signalReceived = false;
+//String signal;
 
 //Motor Pins - Arduino Shield
 const int gateCurrent = 0,
@@ -110,6 +119,10 @@ int lockPressed = false;
 int gateUnlocked = false;
 int gateLocked = false;
 
+boolean button1State = false;
+boolean radioD1State = false;
+boolean radioD2State = false;
+
 
 void setup() {
 
@@ -119,8 +132,15 @@ void setup() {
   // Set LED Pin
   pinMode(ledPin, OUTPUT);
 
+  // Set Button Pin
+  pinMode(button1Pin, INPUT);
+  
+  // Set Radio Pins
+  pinMode(radioD1, INPUT);
+  pinMode(radioD2, INPUT);
+
   // IR Remote Setup
-  irrecv.enableIRIn();  // Start the receiver
+  // irrecv.enableIRIn();  // Start the receiver
   
   
   // Initialize Linear Actuators
@@ -138,28 +158,59 @@ void setup() {
   Serial.println("Lock Actuator Initialized.");
   delay(400);
   Serial.println("Remote Gate Activated.\n\n");
+
 }
 
 
 void loop() {
- 
+
+  // Button Test
+  // Serial.print("button 1 value: ");
+  // Serial.println(digitalRead(button1Pin));
+  button1State = digitalRead(button1Pin);
+  if (button1State) {
+    digitalWrite(ledPin, HIGH);
+  } else {
+    digitalWrite(ledPin, LOW);
+  }
+  delay(400);
+
+  radioD1State = digitalRead(radioD1);
+  radioD2State = digitalRead(radioD2);
+  
+  // Radio Receiver Test
+  if (radioD1State) {
+    digitalWrite(ledPin, HIGH);
+    delay(400);
+    digitalWrite(ledPin, LOW);
+  } else if (radioD2State) {
+    digitalWrite(ledPin, HIGH);
+    delay(200);
+    digitalWrite(ledPin, LOW);
+    delay(200);
+    digitalWrite(ledPin, HIGH);
+    delay(200);
+    digitalWrite(ledPin, LOW);
+  } else {
+    digitalWrite(ledPin, LOW);
+  }
   // Get the signal if there is one.
   // Change the Current State of the Gate.
-  signal = getIrRemoteSignal();
-  if(signalReceived) {
+  /* signal = getIrRemoteSignal(); */
+  /* if(signalReceived) { */
     
-    /* checkSignalCode(signal); */
+  /*   /1* checkSignalCode(signal); *1/ */
     
-    if(signal == resetButton) {
-      signalReceived = false;
-      isLockMoving = true;
-      isGateMoving = true;
-      resetActuators();
-    } else {
-      signalReceived = false;
-      changeGateState(signal); // &&&& BUILD THIS FUNCTION &&&&
-    }
-  }
+  /*   if(signal == resetButton) { */
+  /*     signalReceived = false; */
+  /*     isLockMoving = true; */
+  /*     isGateMoving = true; */
+  /*     resetActuators(); */
+  /*   } else { */
+  /*     signalReceived = false; */
+  /*     changeGateState(signal); // &&&& BUILD THIS FUNCTION &&&& */
+  /*   } */
+  /* } */
 
 }
 
@@ -222,47 +273,47 @@ void resetActuators() {
 }
 
 // Captures and decodes Remote Control Signal
-String getIrRemoteSignal() {
-  String signal;
-  if (irrecv.decode(&results)) {
-     Serial.println("Remote Control Signal: ");
-     signal = formatDecodeResult(&results);
-     irrecv.resume(); // Receive the next value
-     signalReceived = true;
-  }
-  return signal;
-}
+//String getIrRemoteSignal() {
+//  String signal;
+//  if (irrecv.decode(&results)) {
+//     Serial.println("Remote Control Signal: ");
+//     signal = formatDecodeResult(&results);
+//     irrecv.resume(); // Receive the next value
+//     signalReceived = true;
+//  }
+//  return signal;
+//}
 
 // Formats and outputs the content of the decode result
 // object to the serial port.
-String formatDecodeResult(const decode_results* results) {
-  String value;
-  const int protocol = results->decode_type;
-  Serial.print("Protocol: ");
-
-  if (protocol == UNKNOWN) {
-    Serial.println("not recognized");
-  } else {
-    if (protocol == NEC) {
-      Serial.println("NEC");
-    } else if (protocol == RC5) {
-      Serial.println("RC5");
-    } else if (protocol == RC6) {
-      Serial.println("RC6");
-    } else if (protocol == SONY) {
-      Serial.println("SONY");
-    }
-    Serial.print("Value: ");
-    Serial.print(results->value, HEX);
-    Serial.print(" (");
-    Serial.print(results->bits, DEC);
-    Serial.println(" bits)");
-    value = String(results->value, HEX);
-    Serial.print("What is value: ");
-    Serial.println(value);
-  }
-  return value;
-}
+//String formatDecodeResult(const decode_results* results) {
+//  String value;
+//  const int protocol = results->decode_type;
+//  Serial.print("Protocol: ");
+//
+//  if (protocol == UNKNOWN) {
+//    Serial.println("not recognized");
+//  } else {
+//    if (protocol == NEC) {
+//      Serial.println("NEC");
+//    } else if (protocol == RC5) {
+//      Serial.println("RC5");
+//    } else if (protocol == RC6) {
+//      Serial.println("RC6");
+//    } else if (protocol == SONY) {
+//      Serial.println("SONY");
+//    }
+//    Serial.print("Value: ");
+//    Serial.print(results->value, HEX);
+//    Serial.print(" (");
+//    Serial.print(results->bits, DEC);
+//    Serial.println(" bits)");
+//    value = String(results->value, HEX);
+//    Serial.print("What is value: ");
+//    Serial.println(value);
+//  }
+//  return value;
+//}
 
 
 void changeGateState(String signal) {
@@ -371,15 +422,17 @@ void closeTheGateIncrementally() {
     
     // Check the serial while the gate is moving to stop it,
     // if necessary.  
-    signal = getIrRemoteSignal();
-    if(signalReceived) {
-       if(signal == backButton) {
-          if(isGateMoving) {
-             stopGate();
-             Serial.println("Stopping the gate now");
-          }
-        }
-     }   
+    // TODO: We should set up the alarm button on the new radio
+    // remotes to stop the gate at any time.
+//    signal = getIrRemoteSignal();
+//    if(signalReceived) {
+//       if(signal == backButton) {
+//          if(isGateMoving) {
+//             stopGate();
+//             Serial.println("Stopping the gate now");
+//          }
+//        }
+//     }   
  
   } // While Loop
   Serial.println("Past While Loop");
@@ -479,15 +532,17 @@ void openTheGateIncrementally() {
     
     // Check the serial while the gate is moving to stop it,
     // if necessary.  
-    signal = getIrRemoteSignal();
-    if(signalReceived) {
-       if(signal == homeButton) {
-          if(isGateMoving) {
-             stopGate();
-             Serial.println("Stopping the gate now");
-          }
-        }
-     }   
+    // TODO: We should set the alarm button on the new radio
+    // to stop the gate at anytime it is moving.
+//    signal = getIrRemoteSignal();
+//    if(signalReceived) {
+//       if(signal == homeButton) {
+//          if(isGateMoving) {
+//             stopGate();
+//             Serial.println("Stopping the gate now");
+//          }
+//        }
+//     }   
  
   } // While Loop
   Serial.println("Past While Loop");
@@ -751,19 +806,19 @@ void unlockGate() {
      
 }
 
-void checkSignalCode(String s) {
- if (s == homeButton || s == backButton || s == resetButton) {
-  Serial.println("IR CODE: MATCH");
- } else {
-  Serial.println("IR CODE: MATCH NOT FOUND");
-  Serial.print("Reset Button is: ");
-  Serial.println(resetButton);
-  Serial.print("Home Button is: ");
-  Serial.println(homeButton);
-  Serial.print("Back Button is: ");
-  Serial.println(backButton);
-  Serial.print("Code Entered: ");
-  Serial.println(s);
- } 
-}
+/* void checkSignalCode(String s) */ 
+/*  if (s == homeButton || s == backButton || s == resetButton) { */
+/*   Serial.println("IR CODE: MATCH"); */
+/*  } else { */
+/*   Serial.println("IR CODE: MATCH NOT FOUND"); */
+/*   Serial.print("Reset Button is: "); */
+/*   Serial.println(resetButton); */
+/*   Serial.print("Home Button is: "); */
+/*   Serial.println(homeButton); */
+/*   Serial.print("Back Button is: "); */
+/*   Serial.println(backButton); */
+/*   Serial.print("Code Entered: "); */
+/*   Serial.println(s); */
+/*  } */ 
+/* } */
 
