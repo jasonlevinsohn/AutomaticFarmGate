@@ -23,6 +23,10 @@
     
 */
 
+// Controller Address
+#define address 0x80
+
+
 // Gate Test Booleans - Leaves the lock open
 // for testing the arm.
 int GATE_ARM_TEST = true;
@@ -37,12 +41,17 @@ const String resetButton = "57432dd2";
 // will call the stop function before it gets a chance to move at all.
 const String playStopButton = "";
 
-// Actuator Speeds
-const int speed1 = 100,
-          speed2 = 140,
-          speed3 = 180,
-          speed4 = 240,
-          speed5 = 255;
+// RoboClaw Actuator Speeds
+//const int speed1 = 8,
+//          speed2 = 16,
+//          speed3 = 32,
+//          speed4 = 64,
+//          speed5 = 127;
+const int speed1 = 16,
+          speed2 = 26,
+          speed3 = 36,
+          speed4 = 46,
+          speed5 = 46;
 
 // Actuator Positions (eg. 1023 / 6 = 171)
 const int pos1  = 85,
@@ -62,16 +71,24 @@ const int pos1  = 85,
 // we've already done the later so..... what evs :)
 // ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
 
+// ########## PIN DEFINITIONS - END ########## 
 
 // LED Pins
 const int ledPin = 2;
 
 // Button Pins
-const int button1Pin = 6;
+const int button1Pin = 8;
 
 // Radio Receiver Pins
 const int radioD1 = 9;
 const int radioD2 = 10;
+const int radioD3 = 11;
+const int radioD4 = 12;
+
+// Motor Controller Serial Comm Pins
+// Swap S1/S2 (S2 Receive/ S1 Transmit)
+const int S1 = 5;
+const int S2 = 6;
 
 //IRRemote Pin & Setup
 //const int RECV_PIN = 6;
@@ -81,22 +98,25 @@ const int radioD2 = 10;
 //String signal;
 
 //Motor Pins - Arduino Shield
-const int gateCurrent = 0,
-          lockCurrent = 1,
-          gateSpeed = 3,
-          lockBrake = 8,
-          gateBrake = 9,
-          lockSpeed = 11,
-          gateDirection = 12,
-          lockDirection = 13;
+/* const int gateCurrent = 0, */
+/*           lockCurrent = 1, */
+/*           gateSpeed = 3, */
+/*           lockBrake = 8, */
+/*           gateBrake = 9, */
+/*           lockSpeed = 11, */
+/*           gateDirection = 12, */
+/*           lockDirection = 13; */
 
 
 // Pin to get the current position of
 // the actuators.  Don't use 0.
 // It's used by the motor controller
 // already to output the amperage.
-const int analogGatePositionPin = 4;
-const int analogLockPositionPin = 5;
+const int analogGatePositionPin = 5;
+const int analogLockPositionPin = 4;
+
+
+// ########## PIN DEFINITIONS - END ########## 
 
 int gatePos = 0;
 int lockPos = 0;
@@ -122,12 +142,21 @@ int gateLocked = false;
 boolean button1State = false;
 boolean radioD1State = false;
 boolean radioD2State = false;
+boolean radioD3State = false;
+boolean radioD4State = false;
+
+// Setup RoboClaw Communication (Pins and timeout, 10ms)
+// with serial comm. always connect arduino receive to roboclaw transmit
+RoboClaw roboclaw(S2, S1, 10000);
 
 
 void setup() {
 
   // Initiate Serial Port
-  Serial.begin(9600);
+  Serial.begin(2400);
+
+  // Initiate RoboClaw
+  roboclaw.begin(9600);
 
   // Set LED Pin
   pinMode(ledPin, OUTPUT);
@@ -138,25 +167,28 @@ void setup() {
   // Set Radio Pins
   pinMode(radioD1, INPUT);
   pinMode(radioD2, INPUT);
+  pinMode(radioD3, INPUT);
+  pinMode(radioD4, INPUT);  
 
   // IR Remote Setup
   // irrecv.enableIRIn();  // Start the receiver
   
   
   // Initialize Linear Actuators
-  pinMode(gateDirection, OUTPUT);
-  pinMode(gateBrake, OUTPUT);
+  /* pinMode(gateDirection, OUTPUT); */
+  /* pinMode(gateBrake, OUTPUT); */
  
 
-  //%%%%%%%%%  IS THERE A CLEAR FUNCTION %%%%%%%%%%
-  //Serial.clear();
-  Serial.println("Gate Actuator Initialized.");
+  /* //%%%%%%%%%  IS THERE A CLEAR FUNCTION %%%%%%%%%% */
+  /* //Serial.clear(); */
+  /* Serial.println("Gate Actuator Initialized."); */
 
-  pinMode(lockDirection, OUTPUT);
-  pinMode(lockBrake, OUTPUT);
+  /* pinMode(lockDirection, OUTPUT); */
+  /* pinMode(lockBrake, OUTPUT); */
  
-  Serial.println("Lock Actuator Initialized.");
+  /* Serial.println("Lock Actuator Initialized."); */
   delay(400);
+
   Serial.println("Remote Gate Activated.\n\n");
 
 }
@@ -170,27 +202,47 @@ void loop() {
   button1State = digitalRead(button1Pin);
   if (button1State) {
     digitalWrite(ledPin, HIGH);
+    digitalWrite(13, HIGH);
+
   } else {
     digitalWrite(ledPin, LOW);
+    digitalWrite(13, LOW);
   }
   delay(400);
 
   radioD1State = digitalRead(radioD1);
   radioD2State = digitalRead(radioD2);
+  radioD3State = digitalRead(radioD3);
+  radioD4State = digitalRead(radioD4);
+
+
+  Serial.println("MAIN LOOP BEGINNING");
+  Serial.print("D1: ");
+  Serial.println(radioD1State);
+  Serial.print("D2: ");
+  Serial.println(radioD2State);
+  Serial.print("D3: ");
+  Serial.println(radioD3State);
+  Serial.print("D4: ");
+  Serial.println(radioD4State);
   
   // Radio Receiver Test
   if (radioD1State) {
-    digitalWrite(ledPin, HIGH);
-    delay(400);
-    digitalWrite(ledPin, LOW);
+
+    Serial.println("CLOSE THE GATE");
+    changeGateState("close");
   } else if (radioD2State) {
-    digitalWrite(ledPin, HIGH);
-    delay(200);
-    digitalWrite(ledPin, LOW);
-    delay(200);
-    digitalWrite(ledPin, HIGH);
-    delay(200);
-    digitalWrite(ledPin, LOW);
+
+    Serial.println("OPEN THE GATE");
+    changeGateState("open");
+  } else if (radioD3State) {
+    
+    printBatteryLevels(); 
+    
+  } else if (radioD4State) {
+    Serial.println("STOP BUTTON PRESSED....  STOPPING MOTORS");
+    stopGate();
+  
   } else {
     digitalWrite(ledPin, LOW);
   }
@@ -214,6 +266,41 @@ void loop() {
 
 }
 
+void printBatteryLevels() {
+   uint16_t main_battery;
+   uint16_t logic_battery;
+   uint16_t test_battery;
+   
+
+   unsigned char main_buf[2];
+   unsigned char logic_buf[4];
+   unsigned char test_buf[2];
+   Serial.println("Voltage Levels: \n");
+   
+   main_battery = roboclaw.ReadMainBatteryVoltage(address);
+   logic_battery = roboclaw.ReadLogicBattVoltage(address);
+   main_buf[0] = (main_battery >> 8);
+   main_buf[1] = main_battery;
+   logic_buf[0] = (logic_battery >> 8);
+   logic_buf[1] = (logic_battery >> 8);
+   logic_buf[2] = logic_battery;   
+   
+//   Serial.println(main_buf[0]);
+//   Serial.println(main_buf[1]);
+//   Serial.println("\n\n");
+//   Serial.println(logic_buf[0]);
+//   Serial.println(logic_buf[1]);
+//   Serial.println("One Mo Time");
+//   Serial.println(logic_buf[2]);
+//   Serial.println(logic_buf[3]);
+   
+   
+   Serial.println(main_battery, HEX);
+   Serial.println(logic_battery, HEX);
+   
+   // Serial.print((mainBattery >> 8), HEX);
+}
+
 void resetActuators() {
  
 
@@ -230,14 +317,17 @@ void resetActuators() {
         Serial.println("\n ----- Gate Arm Test ----- ");
         Serial.println("\n ----- Setting Lock Open ----- ");
         delay(1000);
-        digitalWrite(lockDirection, LOW);
-        digitalWrite(lockBrake, LOW);
-        analogWrite(lockSpeed, speed5);        
+        /* digitalWrite(lockDirection, LOW); */
+        /* digitalWrite(lockBrake, LOW); */
+        /* analogWrite(lockSpeed, speed5); */        
+        retractLockActuator();
         
       } else {
-        digitalWrite(lockDirection, HIGH);
-        digitalWrite(lockBrake, LOW);
-        analogWrite(lockSpeed, speed5);
+        /* digitalWrite(lockDirection, HIGH); */
+        /* digitalWrite(lockBrake, LOW); */
+        /* analogWrite(lockSpeed, speed5); */
+        /* moveGateClosed(speed5); */
+        extendLockActuator();
       }
       
       curPos = analogRead(analogLockPositionPin);
@@ -248,15 +338,18 @@ void resetActuators() {
 
     }    
     Serial.println("\n\nLock Reset\n\n");
-    analogWrite(lockSpeed, 0);
+    /* analogWrite(lockSpeed, 0); */
+    stopLock();
     
     delay(2000);
     
     Serial.println("Reseting Gate...");
     while(isGateMoving) {
-      digitalWrite(gateDirection, HIGH);
-      digitalWrite(gateBrake, LOW);
-      analogWrite(gateSpeed, speed5);
+      /* digitalWrite(gateDirection, HIGH); */
+      /* digitalWrite(gateBrake, LOW); */
+      /* analogWrite(gateSpeed, speed5); */
+      moveGateClosed(speed5);
+
       
       curPos = analogRead(analogGatePositionPin);
       Serial.print(curPos);
@@ -265,7 +358,8 @@ void resetActuators() {
     }
 
     Serial.println("\n\nGate Reset\n\n");
-    analogWrite(gateSpeed, 0);
+    /* analogWrite(gateSpeed, 0); */
+    stopGate();
 
 
   }
@@ -322,7 +416,7 @@ void changeGateState(String signal) {
   // gate is stopped, get the current position
   // and start moving at the cooresponding speed
   // in the opening direction.
-  if(signal == homeButton && !isGateMoving) {
+  if(signal == "open" && !isGateMoving) {
     openTheGateIncrementally();
   }
 
@@ -330,7 +424,7 @@ void changeGateState(String signal) {
   // gate is stopped, get the current position
   // and start moving at the cooresponding speed
   // in the closing direction
-  else if(signal == backButton && !isGateMoving) {
+  else if(signal == "close" && !isGateMoving) {
     closeTheGateIncrementally();
   }
 }
@@ -347,7 +441,7 @@ void closeTheGateIncrementally() {
   isGateMoving = true;
   int failSafeCounter = 0;
   int oneTime = true;
-
+  
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
 
@@ -593,6 +687,8 @@ int checkActuatorMotion(int actuatorPositionPin) {
           isStillMoving = false;
           Serial.print("CHECKING ACTUATOR MOTION: ATTEMPT ");
           Serial.print(i);
+          Serial.print(" POSITION: ");
+          Serial.print(curPos);
           Serial.println(" -> STOPPED");
         } else {
           lastPos = curPos;
@@ -600,6 +696,8 @@ int checkActuatorMotion(int actuatorPositionPin) {
           isStillMoving = true;
           Serial.print("CHECKING ACTUATOR MOTION: ATTEMPT ");
           Serial.print(i);
+          Serial.print(" POSITION: ");
+          Serial.print(curPos);
           Serial.println(" -> MOVING");
           // NOTE: We could probably use a break here instead.
           // It would be more performant.
@@ -609,6 +707,7 @@ int checkActuatorMotion(int actuatorPositionPin) {
     
     return isStillMoving;
 }
+
 
 // Turns the LED on or off
 // Params -> onState (boolean) turn on or off
@@ -630,9 +729,12 @@ void moveGateClosed(int rate) {
    isGateMoving = true;
   
    // Move the Actuator  
-   digitalWrite(gateDirection, HIGH);
-   digitalWrite(gateBrake, LOW);
-   analogWrite(gateSpeed, 255);
+   /* digitalWrite(gateDirection, HIGH); */
+   /* digitalWrite(gateBrake, LOW); */
+   /* analogWrite(gateSpeed, 255); */
+   Serial.print("Closing Gate: ");
+   Serial.println(rate);
+   roboclaw.ForwardM1(address,rate);
 }
 
 // Move the gate toward the open position.
@@ -644,9 +746,12 @@ void moveGateOpen(int rate) {
   isGateMoving = true;
   
   // Move the Actuator
-  digitalWrite(gateDirection, LOW);
-  digitalWrite(gateBrake, LOW); 
-  analogWrite(gateSpeed, 255);
+  /* digitalWrite(gateDirection, LOW); */
+  /* digitalWrite(gateBrake, LOW); */ 
+  /* analogWrite(gateSpeed, 255); */
+  Serial.print("Opening Gate: ");
+  Serial.println(rate);
+  roboclaw.BackwardM1(address,rate);
 }
 
 // Stop the gate
@@ -660,9 +765,13 @@ void stopGate() {
   isGateMoving = false;
   
   // Stop the Actuator.
-  digitalWrite(gateDirection, LOW);
-  digitalWrite(gateBrake, LOW);
-  analogWrite(gateSpeed, 0); 
+  /* digitalWrite(gateDirection, LOW); */
+  /* digitalWrite(gateBrake, LOW); */
+  /* analogWrite(gateSpeed, 0); */ 
+  Serial.println("Stopping Gate");
+  /* roboclaw.ForwardBackwardM1(address,0); */
+  roboclaw.ForwardM1(address, 0);
+  roboclaw.BackwardM1(address, 0);
 }
 
 
@@ -672,9 +781,10 @@ void stopGate() {
 */
 void extendLockActuator() {
   
-  digitalWrite(lockDirection, HIGH);
-  digitalWrite(lockBrake, LOW);
-  analogWrite(lockSpeed, speed5);
+  /* digitalWrite(lockDirection, HIGH); */
+  /* digitalWrite(lockBrake, LOW); */
+  /* analogWrite(lockSpeed, speed5); */
+  roboclaw.ForwardM1(address, 128);
 }
 
 /*
@@ -683,9 +793,10 @@ void extendLockActuator() {
 */
 void retractLockActuator() {
     
-  digitalWrite(lockDirection, LOW);
-  digitalWrite(lockBrake, LOW);
-  analogWrite(lockSpeed, speed5);
+  /* digitalWrite(lockDirection, LOW); */
+  /* digitalWrite(lockBrake, LOW); */
+  /* analogWrite(lockSpeed, speed5); */
+  roboclaw.BackwardM2(address, 128);
   
 }
 
@@ -694,9 +805,10 @@ void retractLockActuator() {
 */
 void stopLock() {
   
-  digitalWrite(lockDirection, LOW);
-  digitalWrite(lockBrake, HIGH);
-  analogWrite(lockSpeed, 0); 
+  /* digitalWrite(lockDirection, LOW); */
+  /* digitalWrite(lockBrake, HIGH); */
+  /* analogWrite(lockSpeed, 0); */ 
+  roboclaw.ForwardBackwardM2(address, 0);
   
 }
 
