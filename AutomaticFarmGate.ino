@@ -48,30 +48,29 @@ const String playStopButton = "";
 //          speed4 = 64,
 //          speed5 = 127;
 const int speed1 = 16,
-          speed2 = 26,
-          speed3 = 36,
-          speed4 = 46,
-          speed5 = 46;
+          speed2 = 36,
+          speed3 = 56,
+          speed4 = 96,
+          speed5 = 127;
 
 // Actuator Positions (eg. 1023 / 6 = 171)
-const int pos1  = 85,
-          pos2  = 170,
-          pos3  = 255,
-          pos4  = 340,
-          pos5  = 425,
-          pos6  = 510,
-          pos7  = 595,
-          pos8  = 680,
-          pos9  = 765,
-          pos10 = 850,
-          pos11 = 935;
+const int pos1  = 50,  // 15 from 35 (actual opened position)
+          pos2  = 80,  // 30 from 50 
+          pos3  = 140, // 60 from 80
+          pos4  = 280, // 120 from 140
+          pos5  = 445, // in the middle
+          pos6  = 699, // 120 from 819
+          pos7  = 819, // 60 from 879
+          pos8  = 879, // 30 from 909
+          pos9  = 909, // 15 from 924 (actual closed position)
+          pos10 = 920;
 
 
 // The map function is also a good alternative to this, but
 // we've already done the later so..... what evs :)
 // ALTERNATIVE: int range = map(gatePos, positionMin, positionMax, 0, 5);
 
-// ########## PIN DEFINITIONS - END ########## 
+// ########## PIN DEFINITIONS - BEGIN ########## 
 
 // LED Pins
 const int ledPin = 2;
@@ -89,6 +88,10 @@ const int radioD4 = 12;
 // Swap S1/S2 (S2 Receive/ S1 Transmit)
 const int S1 = 5;
 const int S2 = 6;
+
+// Z-Wave Switch Pin
+const int ZWavePin = A3;
+const int zwaveSwitchPin = 7;
 
 //IRRemote Pin & Setup
 //const int RECV_PIN = 6;
@@ -112,8 +115,8 @@ const int S2 = 6;
 // the actuators.  Don't use 0.
 // It's used by the motor controller
 // already to output the amperage.
-const int analogGatePositionPin = 5;
-const int analogLockPositionPin = 4;
+const int analogGatePositionPin = A5;
+const int analogLockPositionPin = A4;
 
 
 // ########## PIN DEFINITIONS - END ########## 
@@ -145,12 +148,17 @@ boolean radioD2State = false;
 boolean radioD3State = false;
 boolean radioD4State = false;
 
+int zwaveValue = 0;
+boolean isZwaveOn = false;
+
 // Setup RoboClaw Communication (Pins and timeout, 10ms)
 // with serial comm. always connect arduino receive to roboclaw transmit
 RoboClaw roboclaw(S2, S1, 10000);
 
 
 void setup() {
+
+  int currentGatePos = 0;
 
   // Initiate Serial Port
   Serial.begin(2400);
@@ -168,7 +176,26 @@ void setup() {
   pinMode(radioD1, INPUT);
   pinMode(radioD2, INPUT);
   pinMode(radioD3, INPUT);
-  pinMode(radioD4, INPUT);  
+  pinMode(radioD4, INPUT);
+
+  // Z-Wave Pin
+  pinMode(zwaveSwitchPin, OUTPUT);
+
+
+  // After coming online, check the state of the gate.
+  // Set the Z-Wave component accordingly.
+  delay(1000);
+  currentGatePos = getGatePosition(50);
+
+  if (currentGatePos > 900) {
+    digitalWrite(zwaveSwitchPin, LOW);
+    Serial.println("\n\nZ-Wave Switch Pin is LOW");
+  } else {
+    digitalWrite(zwaveSwitchPin, HIGH);
+    Serial.println("\n\nZ-Wave Switch Pin is HIGH");
+  }
+
+  delay(1000);
 
   // IR Remote Setup
   // irrecv.enableIRIn();  // Start the receiver
@@ -196,45 +223,88 @@ void setup() {
 
 void loop() {
 
+  int currentGatePosition = 0;
+  int currentGateState = 0; // 0=Closed, 1=Open, 2=Interim
+  int zwaveState = 2; // 0=Closed, 1=Open, 2=No Reading
+  
   // Button Test
   // Serial.print("button 1 value: ");
   // Serial.println(digitalRead(button1Pin));
-  button1State = digitalRead(button1Pin);
-  if (button1State) {
-    digitalWrite(ledPin, HIGH);
-    digitalWrite(13, HIGH);
 
-  } else {
-    digitalWrite(ledPin, LOW);
-    digitalWrite(13, LOW);
-  }
-  delay(400);
+  /* button1State = digitalRead(button1Pin); */
+  /* if (button1State) { */
+  /*   digitalWrite(ledPin, HIGH); */
+  /*   digitalWrite(13, HIGH); */
 
+  /* } else { */
+  /*   digitalWrite(ledPin, LOW); */
+  /*   digitalWrite(13, LOW); */
+  /* } */
+  /* delay(400); */
+
+  // Radio Receiver States
   radioD1State = digitalRead(radioD1);
   radioD2State = digitalRead(radioD2);
   radioD3State = digitalRead(radioD3);
   radioD4State = digitalRead(radioD4);
 
 
-  Serial.println("MAIN LOOP BEGINNING");
-  Serial.print("D1: ");
-  Serial.println(radioD1State);
-  Serial.print("D2: ");
-  Serial.println(radioD2State);
-  Serial.print("D3: ");
-  Serial.println(radioD3State);
-  Serial.print("D4: ");
-  Serial.println(radioD4State);
+  // Z-Wave State
+  zwaveValue = analogRead(ZWavePin);
+
+  if (zwaveValue > 0) {
+    zwaveState = 1;
+  } else if (zwaveValue <= 0) {
+    zwaveState = 0;
+  } else {
+    zwaveState = 2;
+  }
+
+  currentGatePosition = getGatePosition(50);
+  /* Serial.print("Current Gate Position: "); */
+  /* Serial.println(currentGatePosition); */
+  // Gate is Open
+  if (currentGatePosition < 50) {
+    currentGateState = 1;  
+  // Gate is Closed
+  } else if (currentGatePosition > 900) {
+    currentGateState = 0;
+  // Gate is in an interim state
+  } else {
+    currentGateState = 2;
+  }
+
+
+  /* Serial.println("MAIN LOOP BEGINNING"); */
+  /* Serial.print("D1: "); */
+  /* Serial.println(radioD1State); */
+  /* Serial.print("D2: "); */
+  /* Serial.println(radioD2State); */
+  /* Serial.print("D3: "); */
+  /* Serial.println(radioD3State); */
+  /* Serial.print("D4: "); */
+  /* Serial.println(radioD4State); */
+
+  /* Serial.print("Z-Wave State: "); */
+  /* Serial.print(zwaveState); */
+  /* Serial.print(" Current Gate State: "); */
+  /* Serial.println(currentGateState); */
   
-  // Radio Receiver Test
+  // Radio Receiver
   if (radioD1State) {
 
     Serial.println("CLOSE THE GATE");
     changeGateState("close");
+    delay(1000);
+    tellZWaveGateStatus(false);
+
   } else if (radioD2State) {
 
     Serial.println("OPEN THE GATE");
     changeGateState("open");
+    delay(1000);
+    tellZWaveGateStatus(true);
+
   } else if (radioD3State) {
     
     printBatteryLevels(); 
@@ -243,6 +313,16 @@ void loop() {
     Serial.println("STOP BUTTON PRESSED....  STOPPING MOTORS");
     stopGate();
   
+  // Z-Wave Conditions
+  // Open Gate if zwaveState is open(1) and Gate State is Closed(0)
+  } else if (zwaveState == 1 && currentGateState == 0) {
+    /* Serial.print("ZWave says open and Gate Says Closed"); */
+    changeGateState("open");
+  // Close Gate if zwaveState is closed(0) and Gate State is Open(1)
+  } else if (zwaveState == 0 && currentGateState == 1) {
+    /* Serial.println("ZWave says closed and Gate Says Open"); */
+    changeGateState("close");
+
   } else {
     digitalWrite(ledPin, LOW);
   }
@@ -270,7 +350,6 @@ void printBatteryLevels() {
    uint16_t main_battery;
    uint16_t logic_battery;
    uint16_t test_battery;
-   
 
    unsigned char main_buf[2];
    unsigned char logic_buf[4];
@@ -285,21 +364,25 @@ void printBatteryLevels() {
    logic_buf[1] = (logic_battery >> 8);
    logic_buf[2] = logic_battery;   
    
-//   Serial.println(main_buf[0]);
-//   Serial.println(main_buf[1]);
-//   Serial.println("\n\n");
-//   Serial.println(logic_buf[0]);
-//   Serial.println(logic_buf[1]);
-//   Serial.println("One Mo Time");
-//   Serial.println(logic_buf[2]);
-//   Serial.println(logic_buf[3]);
+   Serial.println(main_buf[0]);
+   Serial.println(main_buf[1]);
+   Serial.println("\n\n");
+   Serial.println(logic_buf[0]);
+   Serial.println(logic_buf[1]);
+   Serial.println("One Mo Time");
+   Serial.println(logic_buf[2]);
+   Serial.println(logic_buf[3]);
    
    
-   Serial.println(main_battery, HEX);
-   Serial.println(logic_battery, HEX);
+   /* Serial.println(main_battery, HEX); */
+   /* Serial.println(logic_battery, HEX); */
+
+   delay(1000);
+
    
    // Serial.print((mainBattery >> 8), HEX);
 }
+
 
 void resetActuators() {
  
@@ -441,6 +524,8 @@ void closeTheGateIncrementally() {
   isGateMoving = true;
   int failSafeCounter = 0;
   int oneTime = true;
+  int sampleSize = 50;
+  int sampleData[sampleSize];
   
   // Turn on LED while we are moving.
   switchLED(isGateMoving);
@@ -467,8 +552,15 @@ void closeTheGateIncrementally() {
       isGateMoving = false;
     }
     
-    gatePos = analogRead(analogGatePositionPin);
-    
+    /* gatePos = analogRead(analogGatePositionPin); */
+
+    // Get a sampling of the data
+    for (int i = 0; i < sampleSize; i++) {
+        sampleData[i] = analogRead(analogGatePositionPin);
+    }
+
+    gatePos = getMedian(sampleData, sampleSize);
+
     if(gatePos < pos2) {
       Serial.println("HELLA MOVING----");
       moveGateClosed(speed1);
@@ -514,19 +606,9 @@ void closeTheGateIncrementally() {
     //Put this in the last moveGateOpen function
     isGateMoving = checkActuatorMotion(analogGatePositionPin);
     
-    // Check the serial while the gate is moving to stop it,
-    // if necessary.  
-    // TODO: We should set up the alarm button on the new radio
-    // remotes to stop the gate at any time.
-//    signal = getIrRemoteSignal();
-//    if(signalReceived) {
-//       if(signal == backButton) {
-//          if(isGateMoving) {
-//             stopGate();
-//             Serial.println("Stopping the gate now");
-//          }
-//        }
-//     }   
+    // Check the alarm button on radio remote
+    // while the gate is moving to stop it, if necessary.  
+    checkForStopButtonInvocation();
  
   } // While Loop
   Serial.println("Past While Loop");
@@ -534,7 +616,7 @@ void closeTheGateIncrementally() {
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
-  
+
   // After the gate is done closing. Lock it.
   // Make sure the gate is fully closed before locking gate
   Serial.println("WHAT IS CLOSING STATUS POSITION:");
@@ -556,6 +638,8 @@ void openTheGateIncrementally() {
   isGateMoving = true;
   int failSafeCounter = 0;
   int oneTime = true;
+  int sampleSize = 50;
+  int sampleData[sampleSize];
   
   // Unlock the gate before moving it.
   if(!GATE_ARM_TEST) {
@@ -589,7 +673,14 @@ void openTheGateIncrementally() {
       isGateMoving = false;
     }
     
-    gatePos = analogRead(analogGatePositionPin);
+    /* gatePos = analogRead(analogGatePositionPin); */
+
+    // Get a sampling of the data
+    for (int i = 0; i < sampleSize; i++) {
+        sampleData[i] = analogRead(analogGatePositionPin);
+    }
+
+    gatePos = getMedian(sampleData, sampleSize);
     
     Serial.print("Gate Position: ");
     Serial.println(gatePos);
@@ -624,19 +715,9 @@ void openTheGateIncrementally() {
     //Put this in the last moveGateOpen function
     isGateMoving = checkActuatorMotion(analogGatePositionPin);
     
-    // Check the serial while the gate is moving to stop it,
-    // if necessary.  
-    // TODO: We should set the alarm button on the new radio
-    // to stop the gate at anytime it is moving.
-//    signal = getIrRemoteSignal();
-//    if(signalReceived) {
-//       if(signal == homeButton) {
-//          if(isGateMoving) {
-//             stopGate();
-//             Serial.println("Stopping the gate now");
-//          }
-//        }
-//     }   
+    // Check the for the alarm button radio button pressed
+    // while the gate is moving to stop it, if necessary.  
+    checkForStopButtonInvocation();
  
   } // While Loop
   Serial.println("Past While Loop");
@@ -645,8 +726,19 @@ void openTheGateIncrementally() {
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
   
-  // 
+  // Tell Z-Wave the Gate is Open
+  /* tellZWaveGateStatus(true); */
   
+}
+
+// Used to check for the stop button being pressed.  Interrupts
+// the opening and closing of the gate.  Should be placed at the
+// end of the while loop for isGateOpen in the open/close functions.
+void checkForStopButtonInvocation() {
+  radioD4State = digitalRead(radioD4);
+  if (radioD4State) {
+    stopGate();
+  }
 }
 
 
@@ -664,11 +756,22 @@ int checkActuatorMotion(int actuatorPositionPin) {
     int isSamePos = true;
     int isStillMoving = true;
     int curPos, lastPos;
+    int sampleSize = 75;
+    int sampleData[sampleSize];
+
+    // Get a sampling of the data
+    for (int i = 0; i < sampleSize; i++) {
+        sampleData[i] = analogRead(actuatorPositionPin);
+    }
+
+    // Get the median of the sample data.  No need to clear
+    // the array.  We will just write over the previous values.
+    lastPos = getMedian(sampleData, sampleSize);
      
-     // Let's get the position from before the first time delay.
-     lastPos = analogRead(actuatorPositionPin);
+    // Let's get the position from before the first time delay.
+    /* lastPos = analogRead(actuatorPositionPin); */
     
-    for(int i = 0; i < 5; i++) {
+    for(int j = 0; j < 5; j++) {
       // We check for isSamePos here because it
       // is true when counter is 0.  If at anytime
       // the gatePos does not equal the previous one
@@ -678,15 +781,18 @@ int checkActuatorMotion(int actuatorPositionPin) {
         
         delay(10);
        
-        // Get the current gate position
-        curPos = analogRead(actuatorPositionPin);
+        for (int k = 0; k < sampleSize; k++) {
+            sampleData[k] = analogRead(actuatorPositionPin);
+        }
+
+        curPos = getMedian(sampleData, sampleSize);
         
         if(lastPos == curPos) {
           lastPos = curPos; 
           isSamePos = true;
           isStillMoving = false;
           Serial.print("CHECKING ACTUATOR MOTION: ATTEMPT ");
-          Serial.print(i);
+          Serial.print(j);
           Serial.print(" POSITION: ");
           Serial.print(curPos);
           Serial.println(" -> STOPPED");
@@ -695,7 +801,7 @@ int checkActuatorMotion(int actuatorPositionPin) {
           isSamePos = false;
           isStillMoving = true;
           Serial.print("CHECKING ACTUATOR MOTION: ATTEMPT ");
-          Serial.print(i);
+          Serial.print(j);
           Serial.print(" POSITION: ");
           Serial.print(curPos);
           Serial.println(" -> MOVING");
@@ -707,7 +813,6 @@ int checkActuatorMotion(int actuatorPositionPin) {
     
     return isStillMoving;
 }
-
 
 // Turns the LED on or off
 // Params -> onState (boolean) turn on or off
@@ -852,7 +957,7 @@ void lockGate() {
    // is still moving.
    while(isLockMoving) {
      curPos = analogRead(analogLockPositionPin);
-     if (curPos > pos11) {
+     if (curPos > pos10) {
        Serial.println("Almost fully extended");
        isLockMoving = checkActuatorMotion(analogLockPositionPin);
      } 
@@ -934,3 +1039,51 @@ void unlockGate() {
 /*  } */ 
 /* } */
 
+int compare_int( const void* a, const void* b )
+{
+    if( *(int*)a == *(int*)b ) return 0;
+    return *(int*)a < *(int*)b ? -1 : 1;
+}
+
+int getMedian(int *the_array, int size)
+{
+
+    int median;
+    
+    qsort( the_array, size, sizeof(int), compare_int );
+
+    median = size / 2;
+
+    return the_array[median];
+
+}
+
+int getGatePosition(int sampleSize)
+{
+    int _gatePosition = 0;
+    int sampleData[sampleSize];
+
+    // Get a sampling of the data
+    for (int i = 0; i < sampleSize; i++) {
+        sampleData[i] = analogRead(analogGatePositionPin);
+    }
+
+    _gatePosition = getMedian(sampleData, sampleSize);
+
+    return _gatePosition;
+}
+
+void tellZWaveGateStatus(boolean isGateOpen) {
+    if (isGateOpen) {
+        digitalWrite(zwaveSwitchPin, HIGH);
+        Serial.println("Z-Wave Switch Pin is HIGH");
+    } else {
+        digitalWrite(zwaveSwitchPin, LOW);
+        Serial.println("Z-Wave Switch Pin is LOW");
+    }
+
+    Serial.print("Switching Z-Wave to: ");
+    Serial.println(isGateOpen);
+
+    delay(2000);
+}
