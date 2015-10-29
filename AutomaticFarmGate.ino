@@ -21,35 +21,28 @@
 // Controller Address
 #define address 0x80
 
+// Sensitivity for check if the arm is moving or not. (2 - Not Sensitive || 5+ very sensitive)
+const int MOVEMENT_CHECK_SENSITIVITY = 3;
 
 // Gate Test Booleans - Leaves the lock open
 // for testing the arm.
-int GATE_ARM_TEST = true;
+int GATE_ARM_TEST = false;
 
 // Z-Wave Boolean
-int ZWAVE_ON = true;
+int ZWAVE_ON = false;
 
-// Radio Receiver Code Assignments
-const String homeButton = "5743c03f";
-const String backButton = "57436699";
-const String resetButton = "57432dd2";
-
-// We may need a different button to stop the gate, while moving.
-// I'm afraid with out a debounce method in place, using the same code
-// will call the stop function before it gets a chance to move at all.
-const String playStopButton = "";
 
 // RoboClaw Actuator Speeds
-//const int speed1 = 8,
-//          speed2 = 16,
-//          speed3 = 32,
-//          speed4 = 64,
-//          speed5 = 127;
-const int speed1 = 16,
-          speed2 = 36,
-          speed3 = 56,
-          speed4 = 56,
-          speed5 = 56;
+const int speed1 = 8,
+          speed2 = 16,
+          speed3 = 32,
+          speed4 = 64,
+          speed5 = 127;
+//const int speed1 = 16,
+//          speed2 = 36,
+//          speed3 = 56,
+//          speed4 = 56,
+//          speed5 = 56;
           /* speed4 = 96, */
           /* speed5 = 127; */
 
@@ -57,9 +50,9 @@ const int speed1 = 16,
 const int pos1  = 50,  // 15 from 35 (actual opened position)
           pos2  = 80,  // 30 from 50 
           pos3  = 140, // 60 from 80
-          pos4  = 280, // 120 from 140
+          pos4  = 180, // 120 from 140
           pos5  = 445, // in the middle
-          pos6  = 699, // 120 from 819
+          pos6  = 775, // 120 from 819
           pos7  = 819, // 60 from 879
           pos8  = 879, // 30 from 909
           pos9  = 909, // 15 from 924 (actual closed position)
@@ -92,24 +85,6 @@ const int S2 = 6;
 // Z-Wave Switch Pin
 const int ZWavePin = A3;
 const int zwaveSwitchPin = 7;
-
-//IRRemote Pin & Setup
-//const int RECV_PIN = 6;
-//IRrecv irrecv(RECV_PIN);
-//decode_results results;
-//int signalReceived = false;
-//String signal;
-
-//Motor Pins - Arduino Shield
-/* const int gateCurrent = 0, */
-/*           lockCurrent = 1, */
-/*           gateSpeed = 3, */
-/*           lockBrake = 8, */
-/*           gateBrake = 9, */
-/*           lockSpeed = 11, */
-/*           gateDirection = 12, */
-/*           lockDirection = 13; */
-
 
 // Pin to get the current position of
 // the actuators.  Don't use 0.
@@ -181,41 +156,26 @@ void setup() {
   // Z-Wave Pin
   pinMode(zwaveSwitchPin, OUTPUT);
 
-
-  // After coming online, check the state of the gate.
-  // Set the Z-Wave component accordingly.
-  delay(1000);
-  currentGatePos = getGatePosition(50);
-  Serial.print("Current Gate Position: ");
-  Serial.println(currentGatePos);
-
-  if (currentGatePos > 900) {
-    digitalWrite(zwaveSwitchPin, LOW);
-    Serial.println("\n\nZ-Wave Switch Pin is LOW");
-  } else {
-    digitalWrite(zwaveSwitchPin, HIGH);
-    Serial.println("\n\nZ-Wave Switch Pin is HIGH");
+  if (ZWAVE_ON) {
+    // After coming online, check the state of the gate.
+    // Set the Z-Wave component accordingly.
+    delay(1000);
+    currentGatePos = getGatePosition(50);
+    Serial.print("Current Gate Position: ");
+    Serial.println(currentGatePos);
+  
+    if (currentGatePos > 900) {
+      digitalWrite(zwaveSwitchPin, LOW);
+      Serial.println("\n\nZ-Wave Switch Pin is LOW");
+    } else {
+      digitalWrite(zwaveSwitchPin, HIGH);
+      Serial.println("\n\nZ-Wave Switch Pin is HIGH");
+    }
+ 
+    delay(2000);
   }
 
-  delay(2000);
-
-  // IR Remote Setup
-  // irrecv.enableIRIn();  // Start the receiver
   
-  
-  // Initialize Linear Actuators
-  /* pinMode(gateDirection, OUTPUT); */
-  /* pinMode(gateBrake, OUTPUT); */
- 
-
-  /* //%%%%%%%%%  IS THERE A CLEAR FUNCTION %%%%%%%%%% */
-  /* //Serial.clear(); */
-  /* Serial.println("Gate Actuator Initialized."); */
-
-  /* pinMode(lockDirection, OUTPUT); */
-  /* pinMode(lockBrake, OUTPUT); */
- 
-  /* Serial.println("Lock Actuator Initialized."); */
   delay(400);
 
   Serial.println("Remote Gate Activated.\n\n");
@@ -228,7 +188,7 @@ void loop() {
   int currentGatePosition = 0;
   int currentGateState = 0; // 0=Closed, 1=Open, 2=Interim
   int zwaveState = 2; // 0=Closed, 1=Open, 2=No Reading
-  
+
   // Button Test
   // Serial.print("button 1 value: ");
   // Serial.println(digitalRead(button1Pin));
@@ -250,19 +210,20 @@ void loop() {
   radioD3State = digitalRead(radioD3);
   radioD4State = digitalRead(radioD4);
 
-
-  // Z-Wave State
-  zwaveValue = analogRead(ZWavePin);
-
-//  Serial.print("\nZWave Value: ");
-//  Serial.println(zwaveValue);
-
-  if (zwaveValue > 2) {
-    zwaveState = 1;
-  } else if (zwaveValue <= 1) {
-    zwaveState = 0;
-  } else {
-    zwaveState = 2;
+  if (ZWAVE_ON) {
+    // Z-Wave State
+    zwaveValue = analogRead(ZWavePin);
+  
+    //  Serial.print("\nZWave Value: ");
+    //  Serial.println(zwaveValue);
+  
+    if (zwaveValue > 2) {
+      zwaveState = 1;
+    } else if (zwaveValue <= 1) {
+      zwaveState = 0;
+    } else {
+      zwaveState = 2;
+    }
   }
 
 
@@ -303,15 +264,19 @@ void loop() {
     Serial.println("CLOSE THE GATE");
     changeGateState("close");
     delay(1000);
-    tellZWaveGateStatus(false);
-
+    
+    if (ZWAVE_ON) {
+      tellZWaveGateStatus(false);
+    }
   } else if (radioD2State) {
 
     Serial.println("OPEN THE GATE");
     changeGateState("open");
     delay(1000);
-    tellZWaveGateStatus(true);
-
+    
+    if (ZWAVE_ON) {
+      tellZWaveGateStatus(true);
+    }
   } else if (radioD3State) {
     
     printBatteryLevels();
@@ -324,36 +289,18 @@ void loop() {
   
   // Z-Wave Conditions
   // Open Gate if zwaveState is open(1) and Gate State is Closed(0)
-  } else if (zwaveState == 1 && currentGateState == 0) {
+  } else if (ZWAVE_ON && zwaveState == 1 && currentGateState == 0) {
     Serial.println("ZWave says open and Gate Says Closed");
     /* changeGateState("open"); */
   // Close Gate if zwaveState is closed(0) and Gate State is Open(1)
-  } else if (zwaveState == 0 && currentGateState == 1) {
+  } else if (ZWAVE_ON && zwaveState == 0 && currentGateState == 1) {
     Serial.println("ZWave says closed and Gate Says Open");
     /* changeGateState("close"); */
 
   } else {
     digitalWrite(ledPin, LOW);
   }
-  // Get the signal if there is one.
-  // Change the Current State of the Gate.
-  /* signal = getIrRemoteSignal(); */
-  /* if(signalReceived) { */
-    
-  /*   /1* checkSignalCode(signal); *1/ */
-    
-  /*   if(signal == resetButton) { */
-  /*     signalReceived = false; */
-  /*     isLockMoving = true; */
-  /*     isGateMoving = true; */
-  /*     resetActuators(); */
-  /*   } else { */
-  /*     signalReceived = false; */
-  /*     changeGateState(signal); // &&&& BUILD THIS FUNCTION &&&& */
-  /*   } */
-  /* } */
-
-}
+} // END Loop
 
 void printBatteryLevels() {
    uint16_t main_battery;
@@ -788,7 +735,7 @@ int checkActuatorMotion(int actuatorPositionPin) {
     // Let's get the position from before the first time delay.
     /* lastPos = analogRead(actuatorPositionPin); */
     
-    for(int j = 0; j < 5; j++) {
+    for(int j = 0; j < MOVEMENT_CHECK_SENSITIVITY; j++) {
       // We check for isSamePos here because it
       // is true when counter is 0.  If at anytime
       // the gatePos does not equal the previous one
@@ -906,7 +853,7 @@ void extendLockActuator() {
   /* digitalWrite(lockDirection, HIGH); */
   /* digitalWrite(lockBrake, LOW); */
   /* analogWrite(lockSpeed, speed5); */
-  roboclaw.BackwardM2(address, 50);
+  roboclaw.BackwardM2(address, 127);
 }
 
 /*
@@ -918,7 +865,7 @@ void retractLockActuator() {
   /* digitalWrite(lockDirection, LOW); */
   /* digitalWrite(lockBrake, LOW); */
   /* analogWrite(lockSpeed, speed5); */
-  roboclaw.ForwardM2(address, 50);
+  roboclaw.ForwardM2(address, 127);
   
 }
 
