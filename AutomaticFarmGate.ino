@@ -3,12 +3,7 @@
 #include <RoboClaw.h>
 
 /*
-  Remote Farm Gate
-  ----------------
-  Home Button is NEC: 5743c13e
-  Back Button is NEC: 57436699
-  Reset Button is NEC: 57432dd2
-
+  
   TODO:
   - Functions to extend / retract the lock upon opening and closing - DONE
   - Higher Functions to call extend/retract lower function called lock/unlock Gate - DONE
@@ -31,6 +26,9 @@
 // for testing the arm.
 int GATE_ARM_TEST = true;
 
+// Z-Wave Boolean
+int ZWAVE_ON = true;
+
 // Radio Receiver Code Assignments
 const String homeButton = "5743c03f";
 const String backButton = "57436699";
@@ -50,8 +48,10 @@ const String playStopButton = "";
 const int speed1 = 16,
           speed2 = 36,
           speed3 = 56,
-          speed4 = 96,
-          speed5 = 127;
+          speed4 = 56,
+          speed5 = 56;
+          /* speed4 = 96, */
+          /* speed5 = 127; */
 
 // Actuator Positions (eg. 1023 / 6 = 171)
 const int pos1  = 50,  // 15 from 35 (actual opened position)
@@ -80,7 +80,7 @@ const int button1Pin = 8;
 
 // Radio Receiver Pins
 const int radioD1 = 9;
-const int radioD2 = 10;
+const int radioD2 = 8;
 const int radioD3 = 11;
 const int radioD4 = 12;
 
@@ -115,8 +115,8 @@ const int zwaveSwitchPin = 7;
 // the actuators.  Don't use 0.
 // It's used by the motor controller
 // already to output the amperage.
-const int analogGatePositionPin = A5;
-const int analogLockPositionPin = A4;
+const int analogGatePositionPin = A2;
+const int analogLockPositionPin = A1;
 
 
 // ########## PIN DEFINITIONS - END ########## 
@@ -186,6 +186,8 @@ void setup() {
   // Set the Z-Wave component accordingly.
   delay(1000);
   currentGatePos = getGatePosition(50);
+  Serial.print("Current Gate Position: ");
+  Serial.println(currentGatePos);
 
   if (currentGatePos > 900) {
     digitalWrite(zwaveSwitchPin, LOW);
@@ -195,7 +197,7 @@ void setup() {
     Serial.println("\n\nZ-Wave Switch Pin is HIGH");
   }
 
-  delay(1000);
+  delay(2000);
 
   // IR Remote Setup
   // irrecv.enableIRIn();  // Start the receiver
@@ -252,14 +254,19 @@ void loop() {
   // Z-Wave State
   zwaveValue = analogRead(ZWavePin);
 
-  if (zwaveValue > 0) {
+//  Serial.print("\nZWave Value: ");
+//  Serial.println(zwaveValue);
+
+  if (zwaveValue > 2) {
     zwaveState = 1;
-  } else if (zwaveValue <= 0) {
+  } else if (zwaveValue <= 1) {
     zwaveState = 0;
   } else {
     zwaveState = 2;
   }
 
+
+  // Gate State
   currentGatePosition = getGatePosition(50);
   /* Serial.print("Current Gate Position: "); */
   /* Serial.println(currentGatePosition); */
@@ -307,7 +314,9 @@ void loop() {
 
   } else if (radioD3State) {
     
-    printBatteryLevels(); 
+    printBatteryLevels();
+    
+    resetActuators();
     
   } else if (radioD4State) {
     Serial.println("STOP BUTTON PRESSED....  STOPPING MOTORS");
@@ -316,12 +325,12 @@ void loop() {
   // Z-Wave Conditions
   // Open Gate if zwaveState is open(1) and Gate State is Closed(0)
   } else if (zwaveState == 1 && currentGateState == 0) {
-    /* Serial.print("ZWave says open and Gate Says Closed"); */
-    changeGateState("open");
+    Serial.println("ZWave says open and Gate Says Closed");
+    /* changeGateState("open"); */
   // Close Gate if zwaveState is closed(0) and Gate State is Open(1)
   } else if (zwaveState == 0 && currentGateState == 1) {
-    /* Serial.println("ZWave says closed and Gate Says Open"); */
-    changeGateState("close");
+    Serial.println("ZWave says closed and Gate Says Open");
+    /* changeGateState("close"); */
 
   } else {
     digitalWrite(ledPin, LOW);
@@ -390,6 +399,8 @@ void resetActuators() {
   int curPos = 0;
   
   Serial.println("Reseting Lock...");
+  isLockMoving = true;
+  isGateMoving = true;
 
   while(isLockMoving || isGateMoving) {
 
@@ -444,8 +455,14 @@ void resetActuators() {
     /* analogWrite(gateSpeed, 0); */
     stopGate();
 
+    // Tell Z-Wave the Gate is closed
+    delay(1000);
+    tellZWaveGateStatus(false);
+
 
   }
+
+  Serial.println("Lock and Gate Reset Complete");
 
 }
 
@@ -621,7 +638,7 @@ void closeTheGateIncrementally() {
   // Make sure the gate is fully closed before locking gate
   Serial.println("WHAT IS CLOSING STATUS POSITION:");
   Serial.println(gatePos);
-  if(!GATE_ARM_TEST && gatePos > 920) {
+  if(!GATE_ARM_TEST && gatePos > 900) {
     lockGate();  
   }
 }
@@ -889,7 +906,7 @@ void extendLockActuator() {
   /* digitalWrite(lockDirection, HIGH); */
   /* digitalWrite(lockBrake, LOW); */
   /* analogWrite(lockSpeed, speed5); */
-  roboclaw.ForwardM1(address, 128);
+  roboclaw.BackwardM2(address, 50);
 }
 
 /*
@@ -901,7 +918,7 @@ void retractLockActuator() {
   /* digitalWrite(lockDirection, LOW); */
   /* digitalWrite(lockBrake, LOW); */
   /* analogWrite(lockSpeed, speed5); */
-  roboclaw.BackwardM2(address, 128);
+  roboclaw.ForwardM2(address, 50);
   
 }
 
@@ -913,7 +930,8 @@ void stopLock() {
   /* digitalWrite(lockDirection, LOW); */
   /* digitalWrite(lockBrake, HIGH); */
   /* analogWrite(lockSpeed, 0); */ 
-  roboclaw.ForwardBackwardM2(address, 0);
+  roboclaw.ForwardM2(address, 0);
+  roboclaw.BackwardM2(address, 0);
   
 }
 
@@ -1012,8 +1030,8 @@ void unlockGate() {
     curPos = analogRead(analogLockPositionPin);
     Serial.println("What is cur: ");
     Serial.println(curPos);
-    if (curPos < pos2) {
-      Serial.println("Almost fully retracted");
+    if (curPos < pos2 || curPos > pos9) {
+      Serial.println("Almost fully retracted ");
       isLockMoving = checkActuatorMotion(analogLockPositionPin); 
     }
   }
