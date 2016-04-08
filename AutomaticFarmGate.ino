@@ -24,6 +24,10 @@
 // Sensitivity for check if the arm is moving or not. (2 - Not Sensitive || 5+ very sensitive)
 const int MOVEMENT_CHECK_SENSITIVITY = 3;
 
+// Allows values to be truthy and match if not exactly eqaul by this deviation.
+const int MOVEMENT_CHECK_DEVIATION = 1;
+
+
 // Gate Test Booleans - Leaves the lock open
 // for testing the arm.
 int GATE_ARM_TEST = false;
@@ -38,6 +42,17 @@ const int speed1 = 8,
           speed3 = 32,
           speed4 = 64,
           speed5 = 127;
+const int open_speed1 = 8,
+          open_speed2 = 16,
+          open_speed3 = 32,
+          open_speed4 = 64,
+          open_speed5 = 127;
+const int close_speed1 = 8,
+          close_speed2 = 16,
+          close_speed3 = 32,
+          close_speed4 = 64,
+          close_speed5 = 127;
+          
 //const int speed1 = 16,
 //          speed2 = 36,
 //          speed3 = 56,
@@ -344,6 +359,7 @@ void resetActuators() {
  
 
   int curPos = 0;
+  String signal;
   
   Serial.println("Reseting Lock...");
   isLockMoving = true;
@@ -362,6 +378,7 @@ void resetActuators() {
         /* digitalWrite(lockBrake, LOW); */
         /* analogWrite(lockSpeed, speed5); */        
         retractLockActuator();
+        signal = "open";
         
       } else {
         /* digitalWrite(lockDirection, HIGH); */
@@ -369,12 +386,13 @@ void resetActuators() {
         /* analogWrite(lockSpeed, speed5); */
         /* moveGateClosed(speed5); */
         extendLockActuator();
+        signal = "close";
       }
       
       curPos = analogRead(analogLockPositionPin);
       Serial.print(curPos);
       Serial.println(" Lock Position");
-      isLockMoving = checkActuatorMotion(analogLockPositionPin);
+      isLockMoving = checkActuatorMotion(analogLockPositionPin, signal);
       
 
     }    
@@ -395,7 +413,7 @@ void resetActuators() {
       curPos = analogRead(analogGatePositionPin);
       Serial.print(curPos);
       Serial.println(" Gate Position");
-      isGateMoving = checkActuatorMotion(analogGatePositionPin);
+      isGateMoving = checkActuatorMotion(analogGatePositionPin, "close");
     }
 
     Serial.println("\n\nGate Reset\n\n");
@@ -464,7 +482,7 @@ void changeGateState(String signal) {
   // and start moving at the cooresponding speed
   // in the opening direction.
   if(signal == "open" && !isGateMoving) {
-    openTheGateIncrementally();
+    openTheGateIncrementally(signal);
   }
 
   // If the Back Button is pressed, and the
@@ -472,7 +490,7 @@ void changeGateState(String signal) {
   // and start moving at the cooresponding speed
   // in the closing direction
   else if(signal == "close" && !isGateMoving) {
-    closeTheGateIncrementally();
+    closeTheGateIncrementally(signal);
   }
 }
 
@@ -482,8 +500,9 @@ void changeGateState(String signal) {
   reach.  After the center point in gradually slows
   down until it reaches the position set to align
   with the lock.
+  @Param: signal - "open or close"
 */
-void closeTheGateIncrementally() {
+void closeTheGateIncrementally(String signal) {
 
   isGateMoving = true;
   int failSafeCounter = 0;
@@ -568,7 +587,7 @@ void closeTheGateIncrementally() {
       // %%%%%%%%%  AFTER INITIAL TESTING %%%%%%%%%%%% */
     
     //Put this in the last moveGateOpen function
-    isGateMoving = checkActuatorMotion(analogGatePositionPin);
+    isGateMoving = checkActuatorMotion(analogGatePositionPin, signal);
     
     // Check the alarm button on radio remote
     // while the gate is moving to stop it, if necessary.  
@@ -596,8 +615,9 @@ void closeTheGateIncrementally() {
   reach.  After the center point in gradually slows
   down until it reaches the position set to align 
   with the lock.
+  @Param: signal - "open or close"
 */
-void openTheGateIncrementally() {
+void openTheGateIncrementally(String signal) {
   
   isGateMoving = true;
   int failSafeCounter = 0;
@@ -677,7 +697,7 @@ void openTheGateIncrementally() {
     }
       
     //Put this in the last moveGateOpen function
-    isGateMoving = checkActuatorMotion(analogGatePositionPin);
+    isGateMoving = checkActuatorMotion(analogGatePositionPin, signal);
     
     // Check the for the alarm button radio button pressed
     // while the gate is moving to stop it, if necessary.  
@@ -712,10 +732,11 @@ void checkForStopButtonInvocation() {
   isGateMoving variable back to false, if the internal 
   switches in the actuators have stopped the piston at
   either end of the cylinder.
-  Params: -> moving (boolean) is gate currently moving
+  Params: -> actuatorPositionPin (int) value from actuator of position
+  Params: -> signal (String) can either be "open" or "close"
   Returns:-> isSamePos (boolean) has gate moved over last 50 ms.
 */
-int checkActuatorMotion(int actuatorPositionPin) {
+int checkActuatorMotion(int actuatorPositionPin, String signal) {
   
     int isSamePos = true;
     int isStillMoving = true;
@@ -751,7 +772,10 @@ int checkActuatorMotion(int actuatorPositionPin) {
 
         curPos = getMedian(sampleData, sampleSize);
         
-        if(lastPos == curPos) {
+        // Values seem to fluctuation wildly if the battery is low
+        // and the gate is almost open.  We are going to go ahead and
+        // say its open if the value is less than 40
+        if(lastPos == curPos || (curPos < 40 && signal == "open")) {
           lastPos = curPos; 
           isSamePos = true;
           isStillMoving = false;
@@ -924,7 +948,7 @@ void lockGate() {
      curPos = analogRead(analogLockPositionPin);
      if (curPos > pos10) {
        Serial.println("Almost fully extended");
-       isLockMoving = checkActuatorMotion(analogLockPositionPin);
+       isLockMoving = checkActuatorMotion(analogLockPositionPin, "close");
      } 
    }
    
@@ -979,7 +1003,7 @@ void unlockGate() {
     Serial.println(curPos);
     if (curPos < pos2 || curPos > pos9) {
       Serial.println("Almost fully retracted ");
-      isLockMoving = checkActuatorMotion(analogLockPositionPin); 
+      isLockMoving = checkActuatorMotion(analogLockPositionPin, "open"); 
     }
   }
   
