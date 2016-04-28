@@ -5,8 +5,13 @@
 /*
   
   TODO:
-  - Functions to extend / retract the lock upon opening and closing - DONE
-  - Higher Functions to call extend/retract lower function called lock/unlock Gate - DONE
+  - For the close and lock function.  The return value of the position
+    of the arm seems to fluctuate even when stopped.  We need it to hit
+    an exact point before engaging the lock.  Maybe the reason it is
+    fluctuationin is because the motor controller has the actuator still
+    moving.  Maybe we could stop the actuator using the motor controller
+    function when the arm actuator gets to a specific position where we
+    want to fire the lock.
   - Function to position gate at exact position using Serial input
   
   NOTE: We might want the ability to control gate
@@ -21,11 +26,14 @@
 // Controller Address
 #define address 0x80
 
+// Position we want Arm Actuator to be above before firing lock.
+const int CHECK_CLOSE_GATE_POS_TO_FIRE_LOCK = 885;
+
 // Sensitivity for check if the arm is moving or not. (2 - Not Sensitive || 5+ very sensitive)
 const int MOVEMENT_CHECK_SENSITIVITY = 3;
 
 // Allows values to be truthy and match if not exactly eqaul by this deviation.
-const int MOVEMENT_CHECK_DEVIATION = 1;
+const int MOVEMENT_CHECK_DEVIATION = 0;
 
 
 // Gate Test Booleans - Leaves the lock open
@@ -98,8 +106,8 @@ const int S1 = 5;
 const int S2 = 6;
 
 // Z-Wave Switch Pin
-const int ZWavePin = A3;
-const int zwaveSwitchPin = 7;
+//const int ZWavePin = A3;
+//const int zwaveSwitchPin = 7;
 
 // Pin to get the current position of
 // the actuators.  Don't use 0.
@@ -107,6 +115,10 @@ const int zwaveSwitchPin = 7;
 // already to output the amperage.
 const int analogGatePositionPin = A2;
 const int analogLockPositionPin = A1;
+
+// Voltage Divider Pins
+const int batteryVoltageInputPin = A4;
+const int solarChargerVoltageInputPin = A6;
 
 
 // ########## PIN DEFINITIONS - END ########## 
@@ -141,6 +153,16 @@ boolean radioD4State = false;
 int zwaveValue = 0;
 boolean isZwaveOn = false;
 
+
+// Voltage Divider Variables
+
+float batteryVin = 0.0;
+float solarVin = 0.0;
+int voltageIntervalSeconds = 20;
+unsigned long getVoltageInterval = voltageIntervalSeconds * 1000; // Get the voltage every n cycles.
+unsigned long voltageTimestamp = millis();
+
+
 // Setup RoboClaw Communication (Pins and timeout, 10ms)
 // with serial comm. always connect arduino receive to roboclaw transmit
 RoboClaw roboclaw(S2, S1, 10000);
@@ -169,27 +191,31 @@ void setup() {
   pinMode(radioD4, INPUT);
 
   // Z-Wave Pin
-  pinMode(zwaveSwitchPin, OUTPUT);
+//  pinMode(zwaveSwitchPin, OUTPUT);
 
-  if (ZWAVE_ON) {
-    // After coming online, check the state of the gate.
-    // Set the Z-Wave component accordingly.
-    delay(1000);
-    currentGatePos = getGatePosition(50);
-    Serial.print("Current Gate Position: ");
-    Serial.println(currentGatePos);
+//  if (ZWAVE_ON) {
+//    // After coming online, check the state of the gate.
+//    // Set the Z-Wave component accordingly.
+//    delay(1000);
+//    currentGatePos = getGatePosition(50);
+//    Serial.print("Current Gate Position: ");
+//    Serial.println(currentGatePos);
+//  
+//    if (currentGatePos > 900) {
+//      digitalWrite(zwaveSwitchPin, LOW);
+//      Serial.println("\n\nZ-Wave Switch Pin is LOW");
+//    } else {
+//      digitalWrite(zwaveSwitchPin, HIGH);
+//      Serial.println("\n\nZ-Wave Switch Pin is HIGH");
+//    }
+// 
+//    delay(2000);
+//  }
   
-    if (currentGatePos > 900) {
-      digitalWrite(zwaveSwitchPin, LOW);
-      Serial.println("\n\nZ-Wave Switch Pin is LOW");
-    } else {
-      digitalWrite(zwaveSwitchPin, HIGH);
-      Serial.println("\n\nZ-Wave Switch Pin is HIGH");
-    }
- 
-    delay(2000);
-  }
-
+  // Voltage Divider Pins
+  
+  pinMode(batteryVoltageInputPin, INPUT);
+  pinMode(solarChargerVoltageInputPin, INPUT);
   
   delay(400);
 
@@ -202,7 +228,7 @@ void loop() {
 
   int currentGatePosition = 0;
   int currentGateState = 0; // 0=Closed, 1=Open, 2=Interim
-  int zwaveState = 2; // 0=Closed, 1=Open, 2=No Reading
+//  int zwaveState = 2; // 0=Closed, 1=Open, 2=No Reading
 
   // Button Test
   // Serial.print("button 1 value: ");
@@ -225,21 +251,21 @@ void loop() {
   radioD3State = digitalRead(radioD3);
   radioD4State = digitalRead(radioD4);
 
-  if (ZWAVE_ON) {
-    // Z-Wave State
-    zwaveValue = analogRead(ZWavePin);
-  
-    //  Serial.print("\nZWave Value: ");
-    //  Serial.println(zwaveValue);
-  
-    if (zwaveValue > 2) {
-      zwaveState = 1;
-    } else if (zwaveValue <= 1) {
-      zwaveState = 0;
-    } else {
-      zwaveState = 2;
-    }
-  }
+//  if (ZWAVE_ON) {
+//    // Z-Wave State
+//    zwaveValue = analogRead(ZWavePin);
+//  
+//    //  Serial.print("\nZWave Value: ");
+//    //  Serial.println(zwaveValue);
+//  
+//    if (zwaveValue > 2) {
+//      zwaveState = 1;
+//    } else if (zwaveValue <= 1) {
+//      zwaveState = 0;
+//    } else {
+//      zwaveState = 2;
+//    }
+//  }
 
 
   // Gate State
@@ -280,18 +306,18 @@ void loop() {
     changeGateState("close");
     delay(1000);
     
-    if (ZWAVE_ON) {
-      tellZWaveGateStatus(false);
-    }
+//    if (ZWAVE_ON) {
+//      tellZWaveGateStatus(false);
+//    }
   } else if (radioD2State) {
 
     Serial.println("OPEN THE GATE");
     changeGateState("open");
     delay(1000);
     
-    if (ZWAVE_ON) {
-      tellZWaveGateStatus(true);
-    }
+//    if (ZWAVE_ON) {
+//      tellZWaveGateStatus(true);
+//    }
   } else if (radioD3State) {
     
     printBatteryLevels();
@@ -304,17 +330,20 @@ void loop() {
   
   // Z-Wave Conditions
   // Open Gate if zwaveState is open(1) and Gate State is Closed(0)
-  } else if (ZWAVE_ON && zwaveState == 1 && currentGateState == 0) {
-    Serial.println("ZWave says open and Gate Says Closed");
-    /* changeGateState("open"); */
-  // Close Gate if zwaveState is closed(0) and Gate State is Open(1)
-  } else if (ZWAVE_ON && zwaveState == 0 && currentGateState == 1) {
-    Serial.println("ZWave says closed and Gate Says Open");
-    /* changeGateState("close"); */
+//  } else if (ZWAVE_ON && zwaveState == 1 && currentGateState == 0) {
+//    Serial.println("ZWave says open and Gate Says Closed");
+//    /* changeGateState("open"); */
+//  // Close Gate if zwaveState is closed(0) and Gate State is Open(1)
+//  } else if (ZWAVE_ON && zwaveState == 0 && currentGateState == 1) {
+//    Serial.println("ZWave says closed and Gate Says Open");
+//    /* changeGateState("close"); */
 
   } else {
     digitalWrite(ledPin, LOW);
   }
+  
+  // Get and Print the Voltages for the battery and solar charger
+  printVoltages(getVoltageInterval);
 } // END Loop
 
 void printBatteryLevels() {
@@ -421,8 +450,8 @@ void resetActuators() {
     stopGate();
 
     // Tell Z-Wave the Gate is closed
-    delay(1000);
-    tellZWaveGateStatus(false);
+//    delay(1000);
+//    tellZWaveGateStatus(false);
 
 
   }
@@ -546,25 +575,25 @@ void closeTheGateIncrementally(String signal) {
 
     if(gatePos < pos2) {
       Serial.println("HELLA MOVING----");
-      moveGateClosed(speed1);
+      moveGateClosed(speed2);
     } else if (gatePos < pos2) {
       Serial.println("HELLA MOVING---------");
-      moveGateClosed(speed2);
+      moveGateClosed(speed3);
     } else if (gatePos < pos3) {
       Serial.println("HELLA MOVING---------------");
-      moveGateClosed(speed3);
+      moveGateClosed(speed4);
     } else if (gatePos < pos4) {
       Serial.println("HELLA MOVING-----------------------");
-      moveGateClosed(speed4);
+      moveGateClosed(speed5);
     } else if (gatePos < pos5) {
       Serial.println("HELLA MOVING-------------------------------");
       moveGateClosed(speed5);
     } else if (gatePos < pos6) {
       Serial.println("HELLA MOVING-----------------------");
-      moveGateClosed(speed4);
+      moveGateClosed(speed5);
     } else if (gatePos < pos7) {
       Serial.println("HELLA MOVING---------------");
-      moveGateClosed(speed3);
+      moveGateClosed(speed4);
     } else if (gatePos < pos8) {
       Serial.println("HELLA MOVING---------");
       moveGateClosed(speed2);
@@ -604,7 +633,7 @@ void closeTheGateIncrementally(String signal) {
   // Make sure the gate is fully closed before locking gate
   Serial.println("WHAT IS CLOSING STATUS POSITION:");
   Serial.println(gatePos);
-  if(!GATE_ARM_TEST && gatePos > 900) {
+  if(!GATE_ARM_TEST && gatePos > CHECK_CLOSE_GATE_POS_TO_FIRE_LOCK) {
     lockGate();  
   }
 }
@@ -671,19 +700,19 @@ void openTheGateIncrementally(String signal) {
     // Now we start actually moving the gate YEAH :)
     
     if(gatePos > pos9) {
-      moveGateOpen(speed1);
-    } else if (gatePos > pos8) {
       moveGateOpen(speed2);
+    } else if (gatePos > pos8) {
+      moveGateOpen(speed3);
     } else if (gatePos > pos7) {
       moveGateOpen(speed3);
     } else if (gatePos > pos6) {
-      moveGateOpen(speed4);
+      moveGateOpen(speed5);
     } else if (gatePos > pos5) {
       moveGateOpen(speed5);
     } else if (gatePos > pos4) {
-      moveGateOpen(speed4);
+      moveGateOpen(speed5);
     } else if (gatePos > pos3) {
-      moveGateOpen(speed3);
+      moveGateOpen(speed4);
     } else if (gatePos > pos2) {
       moveGateOpen(speed2);
     } else if (gatePos > pos1) {
@@ -741,8 +770,10 @@ int checkActuatorMotion(int actuatorPositionPin, String signal) {
     int isSamePos = true;
     int isStillMoving = true;
     int curPos, lastPos;
-    int sampleSize = 75;
+    int sampleSize = 50;
     int sampleData[sampleSize];
+    int highDeviation;
+    int lowDeviation;
 
     // Get a sampling of the data
     for (int i = 0; i < sampleSize; i++) {
@@ -752,7 +783,13 @@ int checkActuatorMotion(int actuatorPositionPin, String signal) {
     // Get the median of the sample data.  No need to clear
     // the array.  We will just write over the previous values.
     lastPos = getMedian(sampleData, sampleSize);
-     
+    
+    // Actual positions fluctuate even if motor is not running
+    // We should allow for some deviation in the value to check
+    // if it has stopped.
+    highDeviation = lastPos + MOVEMENT_CHECK_DEVIATION;
+    lowDeviation = lastPos - MOVEMENT_CHECK_DEVIATION;
+    
     // Let's get the position from before the first time delay.
     /* lastPos = analogRead(actuatorPositionPin); */
     
@@ -764,7 +801,7 @@ int checkActuatorMotion(int actuatorPositionPin, String signal) {
       // to continue.
       if(isSamePos) {
         
-        delay(10);
+        delay(5);
        
         for (int k = 0; k < sampleSize; k++) {
             sampleData[k] = analogRead(actuatorPositionPin);
@@ -772,10 +809,14 @@ int checkActuatorMotion(int actuatorPositionPin, String signal) {
 
         curPos = getMedian(sampleData, sampleSize);
         
+        Serial.print("Low Deviation: ");
+        Serial.print(lowDeviation);
+        Serial.print(" High Deviation: ");
+        Serial.println(highDeviation);
         // Values seem to fluctuation wildly if the battery is low
         // and the gate is almost open.  We are going to go ahead and
         // say its open if the value is less than 40
-        if(lastPos == curPos || (curPos < 40 && signal == "open")) {
+        if((lastPos >= lowDeviation && lastPos <= highDeviation) || (curPos < 40 && signal == "open")) {
           lastPos = curPos; 
           isSamePos = true;
           isStillMoving = false;
@@ -1047,6 +1088,19 @@ int getMedian(int *the_array, int size)
 
 }
 
+float getMedianFloat(float *the_array, int size)
+{
+
+    int median;
+    
+    qsort( the_array, size, sizeof(int), compare_int );
+
+    median = size / 2;
+
+    return the_array[median];
+
+}
+
 int getGatePosition(int sampleSize)
 {
     int _gatePosition = 0;
@@ -1062,17 +1116,68 @@ int getGatePosition(int sampleSize)
     return _gatePosition;
 }
 
-void tellZWaveGateStatus(boolean isGateOpen) {
-    if (isGateOpen) {
-        digitalWrite(zwaveSwitchPin, HIGH);
-        Serial.println("Z-Wave Switch Pin is HIGH");
-    } else {
-        digitalWrite(zwaveSwitchPin, LOW);
-        Serial.println("Z-Wave Switch Pin is LOW");
-    }
+//void tellZWaveGateStatus(boolean isGateOpen) {
+//    if (isGateOpen) {
+//        digitalWrite(zwaveSwitchPin, HIGH);
+//        Serial.println("Z-Wave Switch Pin is HIGH");
+//    } else {
+//        digitalWrite(zwaveSwitchPin, LOW);
+//        Serial.println("Z-Wave Switch Pin is LOW");
+//    }
+//
+//    Serial.print("Switching Z-Wave to: ");
+//    Serial.println(isGateOpen);
+//
+//    delay(2000);
+//}
+// Prints the voltages of the battery and the solar panel
+// Param inteval - the interval to print the voltages at
+void printVoltages(int interval) {
+  float batteryVoltage = 0.0;
+  float solarVoltage = 0.0;
+ if ((millis() - voltageTimestamp) > interval) {
+  batteryVoltage = captureVoltage(batteryVoltageInputPin, 50);
+  
+  voltageTimestamp = millis();
+  
+  Serial.print("Battery Voltage: ");
+  Serial.println(batteryVoltage);
+ } 
+}
 
-    Serial.print("Switching Z-Wave to: ");
-    Serial.println(isGateOpen);
+// Gather some voltage data to report
+// Param inputPin - Pin to get data from
+// Param sampleSize - number of voltage samples we should get before getting the median
+// Return median voltage from sample Array
+float captureVoltage(int inputPin, int sampleSize) {
+  float sampleData[sampleSize];
+  float oneSample = 0.0;
+  
+  for (int i = 0; i < sampleSize; i++) {
+    sampleData[i] = getVoltage(inputPin);
+  }
+  
+  return getMedianFloat(sampleData, sampleSize);
+  
+}
 
-    delay(2000);
+// Calculate the voltage from the Voltage Divider
+// the input pin is connected to.
+float getVoltage(int inputPin) {
+  int rawValue;
+  float R1 = 100000.0; //resistance of R1(100K)
+  float R2 = 10000.0;  //resistance of R2(10K)
+  float vout = 0.0;
+  float vin = 0.0;
+  
+  rawValue = analogRead(inputPin);
+  vout = (rawValue * 3.35) / 1024.0;
+  vin = vout / (R2/(R1+R2));
+  
+  // We want to display 0 if the voltage is less than 1
+  if (vin < 0.09) {
+   vin = 0.0; 
+  }
+  
+  return vin;
 }
