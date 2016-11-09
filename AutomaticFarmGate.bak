@@ -1,11 +1,10 @@
 //#include <IRremote.h>
 #include <BMSerial.h>
 #include <RoboClaw.h>
-// #include <SoftwareSerial.h>
 
 // 434 RadioHead Transceiver Library
-//#include <RH_ASK.h>
-//#include <SPI.h> // Not used but needed to compile RadioHead
+#include <RH_ASK.h>
+#include <SPI.h> // Not used but needed to compile RadioHead
 
 
 /*
@@ -112,13 +111,7 @@ const int S2 = 6;
 //const int zwaveSwitchPin = 7;
 
 // RadioHead Transmitter Pin
-//const int radioHeadTransPin = 7;
-
-// Xbee Communication
-BMSerial XBee(2, 3); // Arduino RX, TX (Xbee Dout, Din)
-int xBeeCounter = 0;
-
-
+const int radioHeadTransPin = 7;
 
 // Pin to get the current position of
 // the actuators.  Don't use 0.
@@ -169,7 +162,7 @@ boolean isZwaveOn = false;
 
 float batteryVin = 0.0;
 float solarVin = 0.0;
-int voltageIntervalSeconds = 20;
+int voltageIntervalSeconds = 10;
 unsigned long getVoltageInterval = voltageIntervalSeconds * 1000; // Get the voltage every n cycles.
 unsigned long voltageTimestamp = millis();
 
@@ -184,7 +177,7 @@ RoboClaw roboclaw(S2, S1, 10000);
 // 1st param is speed
 // 2nd param is receiver pin
 // 3rd param is transmitter pin
-// RH_ASK radioHeadDriver(2000, 11, 7);
+RH_ASK radioHeadDriver(2000, 11, 7);
 
 // Char Array to Transmit
 char batVoltArray[10];
@@ -199,9 +192,6 @@ void setup() {
 
   // Initiate RoboClaw
   roboclaw.begin(9600);
-  
-  // Initiate Xbee
-  XBee.begin(9600);
 
   // Set LED Pin
   pinMode(ledPin, OUTPUT);
@@ -216,11 +206,11 @@ void setup() {
   pinMode(radioD4, INPUT);
   
   // Setup RadioHead Driver
-//  if (!radioHeadDriver.init()) {
-//   Serial.println(F("RadioHead Driver initialization failed")); 
-//  } else {
-//    Serial.println(F("RadioHead Driver initialized"));
-//  }
+  if (!radioHeadDriver.init()) {
+   Serial.println(F("RadioHead Driver initialization failed")); 
+  } else {
+    Serial.println(F("RadioHead Driver initialized"));
+  }
   
   
 
@@ -259,36 +249,25 @@ void setup() {
 
 
 void loop() {
-  char data;
+
   int currentGatePosition = 0;
   int currentGateState = 0; // 0=Closed, 1=Open, 2=Interim
 //  int zwaveState = 2; // 0=Closed, 1=Open, 2=No Reading
 
-  // Command AFG through Xbee Test
-  if (XBee.available()) {
-    data = XBee.read();
-    if(data == 'c') {
-     switchLED(true);
-      delay(100);
-     switchLED(false);
-      delay(100);
-     switchLED(true);
-      delay(100);
-     switchLED(false);
-    } else if (data == 'o') {
-     switchLED(true);
-      delay(500);
-     switchLED(false);
-      delay(500);
-     switchLED(true);
-      delay(500);
-     switchLED(false);
-    } else {
-     switchLED(true);
-     delay(2000);
-     switchLED(false);
-    }
-  }
+  // Button Test
+  // Serial.print("button 1 value: ");
+  // Serial.println(digitalRead(button1Pin));
+
+  /* button1State = digitalRead(button1Pin); */
+  /* if (button1State) { */
+  /*   digitalWrite(ledPin, HIGH); */
+  /*   digitalWrite(13, HIGH); */
+
+  /* } else { */
+  /*   digitalWrite(ledPin, LOW); */
+  /*   digitalWrite(13, LOW); */
+  /* } */
+  /* delay(400); */
 
   // Radio Receiver States
   radioD1State = digitalRead(radioD1);
@@ -1061,6 +1040,22 @@ void unlockGate() {
      
 }
 
+/* void checkSignalCode(String s) */ 
+/*  if (s == homeButton || s == backButton || s == resetButton) { */
+/*   Serial.println("IR CODE: MATCH"); */
+/*  } else { */
+/*   Serial.println("IR CODE: MATCH NOT FOUND"); */
+/*   Serial.print("Reset Button is: "); */
+/*   Serial.println(resetButton); */
+/*   Serial.print("Home Button is: "); */
+/*   Serial.println(homeButton); */
+/*   Serial.print("Back Button is: "); */
+/*   Serial.println(backButton); */
+/*   Serial.print("Code Entered: "); */
+/*   Serial.println(s); */
+/*  } */ 
+/* } */
+
 int compare_int( const void* a, const void* b )
 {
     if( *(int*)a == *(int*)b ) return 0;
@@ -1148,19 +1143,13 @@ void printVoltages(int interval) {
   dtostrf(batteryVoltage, sizeof(batteryVoltage), 2, battVoltArray);
   Serial.println(battVoltArray);
   
-  XBee.print("Counter: ");
-  XBee.println(xBeeCounter);
-  xBeeCounter++;
-  
-  XBee.print("Voltage: ");
-  XBee.println(battVoltArray);
   
   //radioHeadDriver.send((uint8_t *)msg, strlen(msg));
   //radioHeadDriver.waitPacketSent();
  
   // Transmit Voltage to Receiver
-  // radioHeadDriver.send((uint8_t *)battVoltArray, strlen(battVoltArray));
-  // radioHeadDriver.waitPacketSent();
+  radioHeadDriver.send((uint8_t *)battVoltArray, strlen(battVoltArray));
+  radioHeadDriver.waitPacketSent();
   
   //radioHeadDriver.send((uint8_t *)batteryVoltage, strlen(batteryVoltage));
   //radioHeadDriver.waitPacketSent();
@@ -1187,7 +1176,7 @@ float captureVoltage(int inputPin, int sampleSize) {
 // Calculate the voltage from the Voltage Divider
 // the input pin is connected to.
 float getVoltage(int inputPin) {
-  int rawValue = 0;
+  int rawValue;
   float R1 = 1000000.0; //resistance of R1(1M)
   float R2 = 100000.0;  //resistance of R2(100K)
   float vout = 0.0;
