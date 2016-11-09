@@ -44,7 +44,7 @@ const int MOVEMENT_CHECK_DEVIATION = 0;
 
 // Gate Test Booleans - Leaves the lock open
 // for testing the arm.
-int GATE_ARM_TEST = false;
+int GATE_ARM_TEST = true;
 
 // RoboClaw Actuator Speeds
 const int speed1 = 8,
@@ -264,31 +264,7 @@ void loop() {
   int currentGateState = 0; // 0=Closed, 1=Open, 2=Interim
 //  int zwaveState = 2; // 0=Closed, 1=Open, 2=No Reading
 
-  // Command AFG through Xbee Test
-  if (XBee.available()) {
-    data = XBee.read();
-    if(data == 'c') {
-     switchLED(true);
-      delay(100);
-     switchLED(false);
-      delay(100);
-     switchLED(true);
-      delay(100);
-     switchLED(false);
-    } else if (data == 'o') {
-     switchLED(true);
-      delay(500);
-     switchLED(false);
-      delay(500);
-     switchLED(true);
-      delay(500);
-     switchLED(false);
-    } else {
-     switchLED(true);
-     delay(2000);
-     switchLED(false);
-    }
-  }
+  
 
   // Radio Receiver States
   radioD1State = digitalRead(radioD1);
@@ -327,8 +303,44 @@ void loop() {
   } else {
     currentGateState = 2;
   }
+  Serial.print("Current Gate Position: ");
+  Serial.println(currentGatePosition);
+  Serial.print("Current Gate State: ");
+  Serial.println(currentGateState);
 
-
+  // Command AFG through Xbee Test
+  if (XBee.available()) {
+    data = XBee.read();
+    Serial.println("Data from Xbee: ");
+    Serial.println(data);
+    if(data == 'c') {
+     switchLED(true);
+      delay(100);
+     switchLED(false);
+      delay(100);
+     switchLED(true);
+      delay(100);
+     switchLED(false);
+     Serial.print("Current Gate State: ");
+     Serial.println(currentGateState);
+     XBee.println("closing");
+     changeGateState("close");
+    } else if (data == 'o') {
+     switchLED(true);
+      delay(500);
+     switchLED(false);
+      delay(500);
+     switchLED(true);
+      delay(500);
+     switchLED(false);
+     XBee.println("opening");
+     changeGateState("open");
+    } else {
+     switchLED(true);
+     delay(2000);
+     switchLED(false);
+    }
+  }
   /* Serial.println("MAIN LOOP BEGINNING"); */
   /* Serial.print("D1: "); */
   /* Serial.println(radioD1State); */
@@ -637,6 +649,8 @@ void closeTheGateIncrementally(String signal) {
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
 
+  XBee.println("closed");
+
   // After the gate is done closing. Lock it.
   // Make sure the gate is fully closed before locking gate
   Serial.println("WHAT IS CLOSING STATUS POSITION:");
@@ -746,6 +760,8 @@ void openTheGateIncrementally(String signal) {
   
   // Turn off LED now that we've stopped.
   switchLED(isGateMoving);
+
+  XBee.println("opened");
   
   // Tell Z-Wave the Gate is Open
   /* tellZWaveGateStatus(true); */
