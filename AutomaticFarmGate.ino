@@ -303,10 +303,10 @@ void loop() {
   } else {
     currentGateState = 2;
   }
-  Serial.print("Current Gate Position: ");
-  Serial.println(currentGatePosition);
-  Serial.print("Current Gate State: ");
-  Serial.println(currentGateState);
+  // Serial.print("Current Gate Position: ");
+  // Serial.println(currentGatePosition);
+  // Serial.print("Current Gate State: ");
+  // Serial.println(currentGateState);
 
   // Command AFG through Xbee Test
   if (XBee.available()) {
@@ -335,6 +335,21 @@ void loop() {
      switchLED(false);
      XBee.println("opening");
      changeGateState("open");
+    } else if (data == 'x') {
+        //Yes, we are online.
+        Serial.println("Reporting Gate State");
+        Serial.print("Gate state is: ");
+        Serial.print(currentGateState);
+        Serial.print(" Position is: ");
+        Serial.println(currentGatePosition);
+        XBee.println("online");
+        if (currentGateState == 1) {
+            XBee.println("open");
+        } else if (currentGateState == 0) {
+            XBee.println("closed");
+        } else {
+            XBee.println("status unknown");
+        }
     } else {
      switchLED(true);
      delay(2000);
@@ -1139,7 +1154,7 @@ int getGatePosition(int sampleSize)
 //    delay(2000);
 //}
 // Prints the voltages of the battery and the solar panel
-// Param inteval - the interval to print the voltages at
+// Param inteval - the interval to print the voltinverages at
 void printVoltages(int interval) {
   float batteryVoltage = 0.0;
   float solarVoltage = 0.0;
