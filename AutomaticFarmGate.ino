@@ -46,6 +46,10 @@ const int MOVEMENT_CHECK_DEVIATION = 0;
 // for testing the arm.
 int GATE_ARM_TEST = true;
 
+// Open for a vehicle = true
+// Open for a person = false
+int FULL_OPEN = false;
+
 // RoboClaw Actuator Speeds
 const int speed1 = 8,
           speed2 = 16,
@@ -161,8 +165,8 @@ boolean radioD2State = false;
 boolean radioD3State = false;
 boolean radioD4State = false;
 
-int zwaveValue = 0;
-boolean isZwaveOn = false;
+//int zwaveValue = 0;
+//boolean isZwaveOn = false;
 
 
 // Voltage Divider Variables
@@ -625,16 +629,16 @@ void closeTheGateIncrementally(String signal) {
       moveGateClosed(speed5);
     } else if (gatePos < pos6) {
       Serial.println(F("HELLA MOVING-----------------------"));
-      moveGateClosed(speed5);
+      moveGateClosed(speed4);
     } else if (gatePos < pos7) {
       Serial.println(F("HELLA MOVING---------------"));
-      moveGateClosed(speed4);
+      moveGateClosed(speed3);
     } else if (gatePos < pos8) {
       Serial.println(F("HELLA MOVING---------"));
       moveGateClosed(speed2);
     } else if (gatePos < pos9) {
       Serial.println(F("HELLA MOVING----"));
-      moveGateClosed(speed1);
+      moveGateClosed(speed2);
       // Debug: Let's print the position now.
       if (oneTime) {
         oneTime = false; 
@@ -737,23 +741,31 @@ void openTheGateIncrementally(String signal) {
     // Now we start actually moving the gate YEAH :)
     
     if(gatePos > pos9) {
-      moveGateOpen(speed2);
+      moveGateOpen(speed1);
     } else if (gatePos > pos8) {
-      moveGateOpen(speed3);
+      moveGateOpen(speed2);
     } else if (gatePos > pos7) {
       moveGateOpen(speed3);
     } else if (gatePos > pos6) {
-      moveGateOpen(speed5);
+      if (FULL_OPEN == false) {
+        moveGateOpen(speed2);
+      } else {
+        moveGateOpen(speed3);
+      }
     } else if (gatePos > pos5) {
-      moveGateOpen(speed5);
+      if (FULL_OPEN == false) {
+        moveGateOpen(speed2);
+      } else {
+        moveGateOpen(speed3);
+      }
     } else if (gatePos > pos4) {
-      moveGateOpen(speed5);
+      moveGateOpen(speed3);
     } else if (gatePos > pos3) {
-      moveGateOpen(speed4);
+      moveGateOpen(speed3);
     } else if (gatePos > pos2) {
       moveGateOpen(speed2);
     } else if (gatePos > pos1) {
-      moveGateOpen(speed1);
+      moveGateOpen(speed2);
       // Debug: Let's print the position now.
       if (oneTime) {
         oneTime = false; 
@@ -761,9 +773,24 @@ void openTheGateIncrementally(String signal) {
       }
       Serial.print(gatePos);
     }
+
       
     //Put this in the last moveGateOpen function
-    isGateMoving = checkActuatorMotion(analogGatePositionPin, signal);
+    if (isGateMoving) {
+      isGateMoving = checkActuatorMotion(analogGatePositionPin, signal);
+    }
+    // Stop the gate before full open
+    if (FULL_OPEN == false) {
+        Serial.println("\n ************* \n Position reached full upen \n ************\n");
+        Serial.print("Gate Position: ");
+        Serial.println(gatePos);
+        Serial.println("***********************");
+        if (gatePos > pos5 && gatePos < pos6) {
+            Serial.println("\n ************* \n" + String(gatePos, DEC) + "\n ************\n");
+            stopGate();
+            isGateMoving = false;
+        }
+    }
     
     // Check the for the alarm button radio button pressed
     // while the gate is moving to stop it, if necessary.  
